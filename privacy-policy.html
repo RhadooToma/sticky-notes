@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sticky Notes Privacy Policy</title>
+  <style>
+    :root {
+      --paper: #faf7f0;
+      --ink: #2d302d;
+      --muted: #68706a;
+      --green: #3f7568;
+      --line: #e1d7c8;
+      --card: #fffdf8;
+      --yellow: #fff4bd;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--paper);
+      font-family: Georgia, 'Times New Roman', serif;
+      line-height: 1.7;
+    }
+
+    main {
+      width: min(720px, calc(100% - 32px));
+      margin: 48px auto;
+    }
+
+    header {
+      padding: 32px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--yellow);
+      box-shadow: 0 8px 24px rgba(75, 61, 42, 0.08);
+    }
+
+    .eyebrow {
+      margin: 0 0 8px;
+      color: var(--green);
+      font: 700 12px/1.2 'Trebuchet MS', sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1, h2 { line-height: 1.2; }
+    h1 { margin: 0; font-size: clamp(32px, 7vw, 52px); }
+    h2 { margin: 32px 0 10px; font-size: 24px; }
+    p, li { color: var(--muted); }
+    .updated { margin: 14px 0 0; font: 13px 'Trebuchet MS', sans-serif; }
+
+    article {
+      margin-top: 20px;
+      padding: 28px 32px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--card);
+    }
+
+    a { color: var(--green); font-weight: 700; }
+    footer {
+      margin: 22px 0;
+      color: var(--muted);
+      font: 12px 'Trebuchet MS', sans-serif;
+      text-align: center;
+    }
+
+    @media (max-width: 520px) {
+      main { margin: 20px auto; }
+      header, article { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">Sticky Notes</p>
+      <h1>Privacy Policy</h1>
+      <p class="updated">Effective date: September 5, 2026</p>
+    </header>
+
+    <article>
+      <p>Sticky Notes is a Chrome extension that helps you save notes, tags, categories, favorites, and selected text while browsing.</p>
+
+      <h2>Information stored</h2>
+      <p>The extension stores the notes and preferences you create, including note text, tags, categories, favorite status, associated website domains, and optional profile image settings.</p>
+
+      <h2>How information is used</h2>
+      <p>Your information is used only to provide the extension's features: saving notes, organizing them, associating them with websites, restoring backups, and synchronizing your notes through Chrome's storage service.</p>
+
+      <h2>Data sharing</h2>
+      <p>Sticky Notes does not sell, rent, or share your notes with third parties. The extension does not include advertising, analytics, tracking pixels, or an external application account.</p>
+
+      <h2>Chrome permissions</h2>
+      <ul>
+        <li><strong>Storage:</strong> saves notes and preferences and enables Chrome synchronization.</li>
+        <li><strong>Tabs:</strong> identifies the active website so notes can be associated with its domain.</li>
+        <li><strong>Context menus:</strong> lets you save text selected on a webpage when you choose the Sticky Notes menu item.</li>
+      </ul>
+
+      <h2>Backups</h2>
+      <p>When you generate a backup, the exported file is downloaded to your device. When you import a backup, the file is read locally by the extension. Backup files are not uploaded to a separate server.</p>
+
+      <h2>Changes to this policy</h2>
+      <p>This policy may be updated when the extension's data practices change. The effective date above will be updated when a new version is published.</p>
+
+      <h2>Contact</h2>
+      <p>For questions about this policy, please open an issue in the <a href="https://github.com/RhadooToma/sticky-notes/issues">Sticky Notes GitHub repository</a>.</p>
+    </article>
+
+    <footer>Sticky Notes · Simple notes, close to the web.</footer>
+  </main>
+</body>
+</html>
