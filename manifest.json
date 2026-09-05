@@ -1,0 +1,29 @@
+{
+  "manifest_version": 3,
+  "name": "Sticky Notes",
+  "version": "1.0",
+  "description": "Save notes, quotes, tags, and tasks while browsing. Organize them by site, category, and favorites, then sync them across Chrome.",
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "poza.png",
+      "32": "poza.png",
+      "48": "poza.png",
+      "128": "poza.png"
+    }
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "poza.png",
+    "32": "poza.png",
+    "48": "poza.png",
+    "128": "poza.png"
+  },
+  "permissions": [
+    "storage",
+    "tabs",
+    "contextMenus"
+  ]
+}
