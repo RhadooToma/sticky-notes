@@ -10,6 +10,44 @@ function createContextMenu() {
 
 chrome.runtime.onInstalled.addListener(createContextMenu);
 
+chrome.tabs.onActivated.addListener(activeInfo => {
+  chrome.scripting.executeScript({
+    target: { tabId: activeInfo.tabId },
+    files: ['content.js']
+  }).catch(() => {});
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+  if (changeInfo.status !== 'complete') return;
+  chrome.scripting.executeScript({
+    target: { tabId },
+    files: ['content.js']
+  }).catch(() => {});
+});
+
+chrome.runtime.onMessage.addListener((message, sender) => {
+  if (message.type === 'showPinnedOverlay' && message.tabId !== undefined) {
+    chrome.scripting.executeScript({
+      target: { tabId: message.tabId },
+      files: ['content.js']
+    }).catch(() => {});
+    return;
+  }
+
+  if (message.type !== 'openPinnedSidePanel') return;
+
+  chrome.windows.getAll({ windowTypes: ['normal'] }, windows => {
+    const targetWindow = windows.find(window => window.focused) || windows[0];
+    if (!targetWindow || targetWindow.id === undefined) return;
+
+    chrome.sidePanel.open({ windowId: targetWindow.id }, () => {
+      if (sender.tab && sender.tab.windowId !== targetWindow.id) {
+        chrome.windows.remove(sender.tab.windowId);
+      }
+    });
+  });
+});
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'save-selection-to-notes' || !info.selectionText) return;
 

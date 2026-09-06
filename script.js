@@ -7,7 +7,10 @@ const statusText = document.getElementById('status');
 const searchInput = document.getElementById('searchInput');
 const siteFilterBtn = document.getElementById('siteFilterBtn');
 const favoriteFilterBtn = document.getElementById('favoriteFilterBtn');
+const recentlyDeletedBtn = document.getElementById('recentlyDeletedBtn');
 const categoryFilter = document.getElementById('categoryFilter');
+const searchContainer = document.getElementById('searchContainer');
+const onboardingLegend = document.getElementById('onboardingLegend');
 
 const newNoteBtn = document.getElementById('newNoteBtn');
 const backBtn = document.getElementById('backBtn');
@@ -15,6 +18,9 @@ const deleteBtn = document.getElementById('deleteBtn');
 const exportJsonBtn = document.getElementById('exportJsonBtn');
 const importJsonBtn = document.getElementById('importJsonBtn');
 const importJsonInput = document.getElementById('importJsonInput');
+const settingsBtn = document.getElementById('settingsBtn');
+const themeToggleBtn = document.getElementById('themeToggleBtn');
+const pinBtn = document.getElementById('pinBtn');
 const lockBtn = document.getElementById('lockBtn');
 const favoriteBtn = document.getElementById('favoriteBtn');
 const noteTagsInput = document.getElementById('noteTagsInput');
@@ -26,14 +32,11 @@ const confirmDeleteBtn = document.getElementById('confirmDeleteBtn');
 const undoToast = document.getElementById('undoToast');
 const undoDeleteBtn = document.getElementById('undoDeleteBtn');
 
-const changeAvatarBtn = document.getElementById('changeAvatarBtn');
-const userAvatar = document.getElementById('userAvatar');
-const profileInitial = document.getElementById('profileInitial');
-
 const btnBold = document.getElementById('btnBold');
 const btnItalic = document.getElementById('btnItalic');
 const btnUnderline = document.getElementById('btnUnderline');
 const formatToolbar = document.getElementById('formatToolbar');
+const insertChecklistBtn = document.getElementById('insertChecklistBtn');
 
 const iconUnlocked = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`;
 const iconLocked = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
@@ -50,6 +53,38 @@ let deletedNote = null;
 let undoTimeout = null;
 let isFavorite = false;
 let editingTags = [];
+let deletedNotes = [];
+let isPinned = false;
+let isDarkMode = false;
+let showRecentlyDeletedOnly = false;
+const isSidePanel = new URLSearchParams(window.location.search).get('sidepanel') === '1';
+
+function dismissOnboarding() {
+  if (onboardingLegend.classList.contains('hidden')) return;
+  onboardingLegend.classList.add('hidden');
+  chrome.storage.sync.set({ ftueArrowGuideCompleted: true });
+}
+
+document.addEventListener('click', dismissOnboarding);
+
+settingsBtn.addEventListener('click', () => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
+});
+
+function applyTheme(theme) {
+  isDarkMode = theme === 'dark';
+  document.body.classList.toggle('dark-mode', isDarkMode);
+  themeToggleBtn.title = isDarkMode ? 'Switch to light mode' : 'Switch to dark mode';
+  themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
+  themeToggleBtn.querySelector('.theme-icon-moon').classList.toggle('hidden', isDarkMode);
+  themeToggleBtn.querySelector('.theme-icon-sun').classList.toggle('hidden', !isDarkMode);
+}
+
+themeToggleBtn.addEventListener('click', () => {
+  const nextTheme = isDarkMode ? 'light' : 'dark';
+  applyTheme(nextTheme);
+  chrome.storage.sync.set({ settingsTheme: nextTheme });
+});
 
 function getNoteTags(note) {
   return Array.isArray(note.tags) ? note.tags : [];
@@ -141,37 +176,33 @@ function updateFavoriteFilterButton() {
   favoriteFilterBtn.classList.toggle('active', showFavoritesOnly);
 }
 
+function updateRecentlyDeletedButton() {
+  recentlyDeletedBtn.classList.toggle('active', showRecentlyDeletedOnly);
+  recentlyDeletedBtn.textContent = showRecentlyDeletedOnly ? 'Back to Notes' : 'Recently Deleted';
+  searchContainer.classList.toggle('recently-deleted', showRecentlyDeletedOnly);
+}
+
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   currentSite = getDomain(tabs[0] && tabs[0].url);
   updateSiteFilterButton();
   renderNotesList(searchInput.value);
 });
 
-chrome.storage.sync.get(['notesArray', 'userAvatarUrl'], (data) => {
+chrome.storage.sync.get(['notesArray', 'deletedNotes', 'startupTab', 'pinnedNoteId', 'settingsTheme', 'ftueArrowGuideCompleted'], (data) => {
+  applyTheme(data.settingsTheme || 'light');
+  if (!data.ftueArrowGuideCompleted) onboardingLegend.classList.remove('hidden');
+  window.pinnedNoteId = data.pinnedNoteId;
   if (data.notesArray) allNotes = data.notesArray;
+  if (Array.isArray(data.deletedNotes)) deletedNotes = data.deletedNotes;
   renderNotesList();
 
-  if (data.userAvatarUrl) {
-    userAvatar.src = data.userAvatarUrl;
-    userAvatar.classList.remove('hidden');
-    profileInitial.classList.add('hidden');
+  if (data.startupTab === 'new') {
+    createNewNote();
   }
-});
 
-changeAvatarBtn.addEventListener('click', () => {
-  const url = prompt("Enter the direct link to your profile picture (URL):");
-  if (url !== null) {
-    if (url.trim() === "") {
-      userAvatar.src = "";
-      userAvatar.classList.add('hidden');
-      profileInitial.classList.remove('hidden');
-      chrome.storage.sync.remove('userAvatarUrl');
-    } else {
-      userAvatar.src = url;
-      userAvatar.classList.remove('hidden');
-      profileInitial.classList.add('hidden');
-      chrome.storage.sync.set({ 'userAvatarUrl': url });
-    }
+  if (isSidePanel && data.pinnedNoteId !== undefined) {
+    const pinnedNote = allNotes.find(note => String(note.id) === String(data.pinnedNoteId));
+    if (pinnedNote) openEditor(pinnedNote.id);
   }
 });
 
@@ -182,7 +213,13 @@ btnUnderline.addEventListener('click', () => document.execCommand('underline', f
 function renderNotesList(filterText = '') {
   updateCategoryFilterOptions();
   notesList.innerHTML = '';
-  const filteredNotes = allNotes.filter(note => {
+  const sourceNotes = showRecentlyDeletedOnly ? deletedNotes : allNotes;
+  const filteredNotes = sourceNotes.filter(note => {
+    if (showRecentlyDeletedOnly) {
+      const deletedText = document.createElement('div');
+      deletedText.innerHTML = note.text || '';
+      return (deletedText.innerText || deletedText.textContent).toLowerCase().includes(filterText.toLowerCase());
+    }
     if (showCurrentSiteOnly && !noteMatchesCurrentSite(note)) return false;
     if (showFavoritesOnly && note.favorite !== true) return false;
     if (categoryFilter.value !== 'all' && getNoteCategory(note) !== categoryFilter.value) return false;
@@ -243,7 +280,19 @@ function renderNotesList(filterText = '') {
       card.appendChild(urlSpan);
     }
     
-    card.addEventListener('click', () => openEditor(note.id));
+    if (showRecentlyDeletedOnly) {
+      const restoreButton = document.createElement('button');
+      restoreButton.className = 'restore-note-btn';
+      restoreButton.type = 'button';
+      restoreButton.textContent = 'Restore';
+      restoreButton.addEventListener('click', event => {
+        event.stopPropagation();
+        restoreDeletedNote(note.id);
+      });
+      card.appendChild(restoreButton);
+    } else {
+      card.addEventListener('click', () => openEditor(note.id));
+    }
     notesList.appendChild(card);
   });
 }
@@ -265,6 +314,22 @@ favoriteFilterBtn.addEventListener('click', () => {
   renderNotesList(searchInput.value);
 });
 
+recentlyDeletedBtn.addEventListener('click', () => {
+  showRecentlyDeletedOnly = !showRecentlyDeletedOnly;
+  showCurrentSiteOnly = false;
+  showFavoritesOnly = false;
+  updateSiteFilterButton();
+  updateFavoriteFilterButton();
+  updateRecentlyDeletedButton();
+  renderNotesList(searchInput.value);
+});
+
+insertChecklistBtn.addEventListener('click', () => {
+  noteArea.focus();
+  document.execCommand('insertHTML', false, '<div class="checklist-line"><input type="checkbox"><span>New task</span></div>');
+  saveNoteContent();
+});
+
 function openEditor(id, newlyCreated = false) {
   currentNoteId = id;
   isNewNote = newlyCreated;
@@ -276,6 +341,8 @@ function openEditor(id, newlyCreated = false) {
   renderTagChips();
   noteCategoryInput.value = noteObj ? getNoteCategory(noteObj) : '';
   isFavorite = noteObj ? noteObj.favorite === true : false;
+  isPinned = noteObj ? String(noteObj.id) === String(getPinnedNoteId()) : false;
+  updatePinButton();
   updateFavoriteButton();
   
   isLocked = false;
@@ -310,7 +377,7 @@ backBtn.addEventListener('click', () => {
   renderNotesList(searchInput.value); 
 });
 
-newNoteBtn.addEventListener('click', () => {
+function createNewNote() {
   chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
     let domainName = "Unknown site";
     if (tabs[0] && tabs[0].url) {
@@ -331,7 +398,9 @@ newNoteBtn.addEventListener('click', () => {
     allNotes.unshift(newNote);
     openEditor(newNote.id, true);
   });
-});
+}
+
+newNoteBtn.addEventListener('click', createNewNote);
 
 noteArea.addEventListener('input', () => {
   clearTimeout(saveTimeout);
@@ -347,6 +416,14 @@ noteArea.addEventListener('input', () => {
     statusText.textContent = 'Saved ✓';
     setTimeout(() => { if(!isLocked) statusText.textContent = ''; }, 2000);
   }, 500);
+});
+
+noteArea.addEventListener('change', event => {
+  if (!event.target.matches('.checklist-line input')) return;
+  const noteIndex = allNotes.findIndex(note => note.id === currentNoteId);
+  if (noteIndex === -1) return;
+  allNotes[noteIndex].text = noteArea.innerHTML;
+  saveToStorage();
 });
 
 function getTagsFromInput() {
@@ -419,6 +496,7 @@ cancelDeleteBtn.addEventListener('click', closeDeleteModal);
 confirmDeleteBtn.addEventListener('click', () => {
   const deletedIndex = allNotes.findIndex(note => note.id === currentNoteId);
   deletedNote = deletedIndex === -1 ? null : { note: allNotes[deletedIndex], index: deletedIndex };
+  if (deletedNote) deletedNotes.unshift({ ...deletedNote.note, deletedAt: Date.now() });
   allNotes = allNotes.filter(n => n.id !== currentNoteId);
   saveToStorage();
   closeDeleteModal();
@@ -440,12 +518,24 @@ function showUndoToast() {
 undoDeleteBtn.addEventListener('click', () => {
   if (!deletedNote) return;
   allNotes.splice(Math.min(deletedNote.index, allNotes.length), 0, deletedNote.note);
+  deletedNotes = deletedNotes.filter(note => String(note.id) !== String(deletedNote.note.id));
   saveToStorage();
   renderNotesList(searchInput.value);
   deletedNote = null;
   clearTimeout(undoTimeout);
   undoToast.classList.add('hidden');
 });
+
+function restoreDeletedNote(noteId) {
+  const deletedIndex = deletedNotes.findIndex(note => String(note.id) === String(noteId));
+  if (deletedIndex === -1) return;
+  const restoredNote = { ...deletedNotes[deletedIndex] };
+  delete restoredNote.deletedAt;
+  allNotes.unshift(restoredNote);
+  deletedNotes.splice(deletedIndex, 1);
+  saveToStorage();
+  renderNotesList(searchInput.value);
+}
 
 deleteModal.addEventListener('click', (event) => {
   if (event.target === deleteModal) closeDeleteModal();
@@ -524,7 +614,7 @@ importJsonInput.addEventListener('change', () => {
 });
 
 function saveToStorage() {
-  chrome.storage.sync.set({ 'notesArray': allNotes }, () => {
+  chrome.storage.sync.set({ 'notesArray': allNotes, 'deletedNotes': deletedNotes }, () => {
     if (chrome.runtime.lastError) {
       statusText.textContent = 'Sync issue';
       return;
@@ -534,3 +624,38 @@ function saveToStorage() {
     }
   });
 }
+
+function getPinnedNoteId() {
+  return window.pinnedNoteId;
+}
+
+function updatePinButton() {
+  pinBtn.classList.toggle('favorite-active', isPinned);
+  pinBtn.title = isPinned ? 'Unpin note from Side Panel' : 'Keep note open in Side Panel';
+  pinBtn.setAttribute('aria-label', pinBtn.title);
+}
+
+pinBtn.addEventListener('click', () => {
+  if (!currentNoteId) return;
+  isPinned = !isPinned;
+  window.pinnedNoteId = isPinned ? currentNoteId : null;
+  updatePinButton();
+  const storageUpdate = isPinned
+    ? { notesArray: allNotes, pinnedNoteId: currentNoteId }
+    : { notesArray: allNotes };
+  if (!isPinned) {
+    chrome.storage.sync.remove('pinnedNoteId');
+  }
+  chrome.storage.sync.set(storageUpdate, () => {
+    if (isPinned) {
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const activeTab = tabs[0];
+        if (activeTab && activeTab.id !== undefined) {
+          chrome.runtime.sendMessage({ type: 'showPinnedOverlay', tabId: activeTab.id });
+        }
+      });
+      window.close();
+    }
+    statusText.textContent = isPinned ? 'Pinned in Side Panel' : 'Unpinned';
+  });
+});

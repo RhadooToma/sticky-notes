@@ -10,22 +10,18 @@
   <div id="menuView">
     <div class="header">
       <div class="user-info">
-        <div class="profile-container" id="changeAvatarBtn" title="Click to change profile picture">
-          <img id="userAvatar" src="" alt="Avatar" class="hidden">
-          <!-- Thematic Profile Icon (SVG Document) instead of a letter -->
-          <div id="profileInitial" class="profile-pic">
-            <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
-              <polyline points="14 2 14 8 20 8"></polyline>
-              <line x1="16" y1="13" x2="8" y2="13"></line>
-              <line x1="16" y1="17" x2="8" y2="17"></line>
-              <polyline points="10 9 9 9 8 9"></polyline>
-            </svg>
-          </div>
-        </div>
         <span class="title">Sticky Notes</span>
       </div>
       <div class="actions">
+        <button id="themeToggleBtn" class="backup-btn theme-toggle" title="Switch to dark mode" aria-label="Switch to dark mode">
+          <svg class="theme-icon-moon" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A8.5 8.5 0 1 1 11.2 3 6.7 6.7 0 0 0 21 12.8z"></path></svg>
+          <svg class="theme-icon-sun hidden" viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2m0 16v2M4.93 4.93l1.41 1.41m11.32 11.32 1.41 1.41M2 12h2m16 0h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path></svg>
+        </button>
+        <button id="settingsBtn" class="backup-btn" title="Open settings" aria-label="Open settings">
+          <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0L6.2 6.08a2 2 0 1 0-2 3.46l.15.08a2 2 0 0 1 1 1.73v.5a2 2 0 0 1-1 1.73l-.15.08a2 2 0 1 0 2 3.46l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 1 0 2-3.46l-.15-.08a2 2 0 0 1-1-1.73v-.5a2 2 0 0 1 1-1.73l.15-.08a2 2 0 1 0-2-3.46l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path><circle cx="12" cy="12" r="3"></circle>
+          </svg>
+        </button>
         <button id="exportJsonBtn" class="backup-btn" title="Generate backup" aria-label="Generate backup">
           <svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path>
@@ -43,13 +39,22 @@
         </button>
       </div>
     </div>
-    <div class="search-container">
+    <div id="onboardingLegend" class="ftue-guide hidden" role="status" aria-label="Sticky Notes quick guide">
+      <div class="ftue-callout ftue-theme"><span>Theme</span><i>↑</i></div>
+      <div class="ftue-callout ftue-settings"><span>Settings</span><i>↑</i></div>
+      <div class="ftue-callout ftue-export"><span>Export</span><i>↑</i></div>
+      <div class="ftue-callout ftue-import"><span>Import</span><i>↑</i></div>
+      <div class="ftue-callout ftue-new"><span>New note</span><i>↑</i></div>
+      <div class="ftue-hint">Click any button to start</div>
+    </div>
+    <div id="searchContainer" class="search-container">
       <div class="search-box">
         <svg viewBox="0 0 24 24" width="14" height="14" stroke="#9ca3af" stroke-width="2" fill="none"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
         <input type="text" id="searchInput" placeholder="Search text or site...">
       </div>
       <button id="siteFilterBtn" class="site-filter-btn" type="button">All notes</button>
       <button id="favoriteFilterBtn" class="site-filter-btn" type="button">Favorites</button>
+      <button id="recentlyDeletedBtn" class="site-filter-btn" type="button">Recently Deleted</button>
       <select id="categoryFilter" class="category-filter" aria-label="Filter notes by category">
         <option value="all">All categories</option>
       </select>
@@ -65,6 +70,9 @@
         Back
       </button>
       <div class="actions">
+        <button id="pinBtn" title="Keep note visible on the page" aria-label="Keep note visible on the page">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m15 4 5 5-3 1-4 4 2 2-1 1-2-2-4 4-1-1 4-4-2-2 1-1 2 2 4-4 1-3z"></path></svg>
+        </button>
         <button id="lockBtn" title="Read-Only Mode">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
         </button>
@@ -76,6 +84,7 @@
     </div>
     
     <div class="format-toolbar" id="formatToolbar">
+      <button id="insertChecklistBtn" title="Insert checklist">☑</button>
       <button id="btnBold" title="Bold (Ctrl+B)" style="font-weight: bold;">B</button>
       <button id="btnItalic" title="Italic (Ctrl+I)" style="font-style: italic;">I</button>
       <button id="btnUnderline" title="Underline (Ctrl+U)" style="text-decoration: underline;">U</button>

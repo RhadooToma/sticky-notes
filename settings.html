@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Sticky Notes Settings</title>
+  <link rel="stylesheet" href="settings.css">
+  <link rel="stylesheet" href="settings-theme.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span class="brand-mark">✦</span><strong>Sticky Notes</strong></div>
+    <span class="saved-state" id="savedState">All changes saved</span>
+  </header>
+
+  <main class="settings-shell">
+    <section class="page-heading">
+      <p class="eyebrow">Workspace preferences</p>
+      <h1>Settings</h1>
+      <p>Shape the way Sticky Notes fits into your browsing routine.</p>
+    </section>
+
+    <div class="settings-grid">
+      <section class="settings-section">
+        <h2>Account &amp; Sync</h2>
+        <div class="panel account-panel">
+          <span class="panel-label">LOCAL STORAGE</span>
+          <h3>Your notes stay on this browser</h3>
+          <p>Notes and preferences are saved with Chrome Sync. You can export a backup at any time.</p>
+          <div class="sync-status"><span class="status-dot"></span><span id="syncStatus">Chrome storage connected</span></div>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>General</h2>
+        <div class="panel">
+          <span class="panel-label">DISPLAY MODE</span>
+          <h3>Choose how Sticky Notes opens</h3>
+          <label class="choice"><input type="radio" name="displayMode" value="popup" checked><span><strong>Popup Overlay Mode (Default)</strong><small>Open notes in a compact window from the browser toolbar.</small></span></label>
+          <label class="choice"><input type="radio" name="displayMode" value="sidepanel"><span><strong>Side Panel Mode</strong><small>Keep Sticky Notes open beside the page while you browse.</small></span></label>
+        </div>
+        <div class="panel compact-panel">
+          <label for="startupTab" class="panel-label">STARTUP TAB</label>
+          <select id="startupTab"><option value="notes">Notes list</option><option value="new">Create a new note</option></select>
+        </div>
+        <div class="panel shortcut-panel">
+          <div><span class="panel-label">KEYBOARD SHORTCUT</span><h3>Open Sticky Notes quickly</h3><p>Change the shortcut in Chrome's extension shortcut manager.</p></div>
+          <button id="shortcutBtn" class="action-btn" type="button">Configure</button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h2>Appearance</h2>
+        <div class="panel">
+          <span class="panel-label">COLOR THEME</span>
+          <h3>Choose your visual mood</h3>
+          <div class="theme-options"><button class="theme-option active" data-theme="light">Light</button><button class="theme-option" data-theme="dark">Dark</button><button class="theme-option" data-theme="system">System</button></div>
+        </div>
+        <div class="panel">
+          <span class="panel-label">ACCENT COLOR</span>
+          <h3>Choose a highlight color</h3>
+          <div class="accent-options"><button class="accent-option active" data-accent="teal" aria-label="Teal"></button><button class="accent-option amber" data-accent="amber" aria-label="Amber"></button><button class="accent-option blue" data-accent="blue" aria-label="Blue"></button><button class="accent-option rose" data-accent="rose" aria-label="Rose"></button></div>
+        </div>
+      </section>
+
+      <section class="settings-section data-section">
+        <h2>Data &amp; Storage</h2>
+        <div class="panel stats-panel"><span class="panel-label">STORAGE STATS</span><div class="stats"><div><strong id="noteCount">0</strong><span>SAVED NOTES</span></div><div><strong id="tagCount">0</strong><span>TAGS</span></div><div><strong id="domainCount">0</strong><span>DOMAINS</span></div></div></div>
+        <div class="panel backup-panel"><span class="panel-label">BACKUP &amp; EXPORT</span><div class="backup-row"><div><strong>Export JSON backup</strong><small>Download all your notes.</small></div><button id="exportBtn" class="action-btn">Download</button></div><div class="backup-row"><div><strong>Import JSON backup</strong><small>Restore notes from a previous backup.</small></div><button id="importBtn" class="action-btn">Import</button><input id="importInput" type="file" accept="application/json,.json" hidden></div></div>
+      </section>
+    </div>
+  </main>
+  <script src="settings.js"></script>
+</body>
+</html>
