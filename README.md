@@ -1,10 +1,27 @@
 # Sticky Notes
 
-A lightweight Chrome extension for keeping useful notes close to the websites where you found them.
+Keep useful thoughts, quotes, links, and tasks close to the websites where you found them.
 
-Sticky Notes helps you capture ideas, quotes, links, and small tasks while browsing, then find them again by site, category, tag, or favorite status.
+Sticky Notes is a simple, lightweight note-taking companion for Chrome. Capture
+something in seconds, organize it your way, and find it again without leaving
+your browser.
 
-## Highlights
+## What you can do
+
+- Save notes and selected text while browsing
+- Organize notes with custom categories and tags
+- Find notes by website, category, favorite status, or search
+- Keep important notes easy to spot with favorites
+- Drag notes onto a page as floating, page-specific post-its
+- Move post-its and keep their positions after a page reload
+- Lock or close post-its directly on the page
+- Use numbered and bulleted lists while writing
+- Export and restore notes with JSON backups
+- Sync notes across Chrome devices
+
+Simple, lightweight, and designed for quick notes without leaving your browser.
+
+## Features
 
 - Write and format notes directly in the browser
 - Associate notes with the current website
@@ -16,11 +33,6 @@ Sticky Notes helps you capture ideas, quotes, links, and small tasks while brows
 - Export and restore notes with JSON backups
 - Undo accidental deletions
 - Sync notes through Chrome storage
-- Drag notes from the notes list onto a web page as floating post-its
-- Keep each post-it attached to the exact page where it was placed
-- Move post-its and keep their positions after reloads
-- Lock or close post-its directly on the page
-- Use numbered and bulleted lists in the editor
 - Clear floating post-its when the extension is installed for the first time
 
 ## Preview

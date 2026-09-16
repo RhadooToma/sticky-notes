@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "The Stickiest Notes - Never Miss What Matters",
   "version": "3.6",
-  "description": "Save notes, quotes, tags, and tasks while browsing. Organize them by site, category, and favorites, then sync them across Chrome.",
+  "description": "Capture notes, quotes, links, and tasks while browsing, then organize them by site, category, tags, and favorites.",
   "action": {
     "default_popup": "popup.html",
     "default_icon": {
