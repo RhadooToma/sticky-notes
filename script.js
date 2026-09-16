@@ -20,7 +20,6 @@ const importJsonBtn = document.getElementById('importJsonBtn');
 const importJsonInput = document.getElementById('importJsonInput');
 const settingsBtn = document.getElementById('settingsBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
-const pinBtn = document.getElementById('pinBtn');
 const lockBtn = document.getElementById('lockBtn');
 const favoriteBtn = document.getElementById('favoriteBtn');
 const noteTagsInput = document.getElementById('noteTagsInput');
@@ -36,7 +35,8 @@ const btnBold = document.getElementById('btnBold');
 const btnItalic = document.getElementById('btnItalic');
 const btnUnderline = document.getElementById('btnUnderline');
 const formatToolbar = document.getElementById('formatToolbar');
-const insertChecklistBtn = document.getElementById('insertChecklistBtn');
+const btnOrderedList = document.getElementById('btnOrderedList');
+const btnUnorderedList = document.getElementById('btnUnorderedList');
 
 const iconUnlocked = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>`;
 const iconLocked = `<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>`;
@@ -54,10 +54,8 @@ let undoTimeout = null;
 let isFavorite = false;
 let editingTags = [];
 let deletedNotes = [];
-let isPinned = false;
 let isDarkMode = false;
 let showRecentlyDeletedOnly = false;
-const isSidePanel = new URLSearchParams(window.location.search).get('sidepanel') === '1';
 
 function dismissOnboarding() {
   if (onboardingLegend.classList.contains('hidden')) return;
@@ -188,22 +186,18 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
   renderNotesList(searchInput.value);
 });
 
-chrome.storage.sync.get(['notesArray', 'deletedNotes', 'startupTab', 'pinnedNoteId', 'settingsTheme', 'ftueArrowGuideCompleted'], (data) => {
+chrome.storage.sync.get(['notesArray', 'deletedNotes', 'startupTab', 'settingsTheme', 'ftueArrowGuideCompleted'], (data) => {
   applyTheme(data.settingsTheme || 'light');
   if (!data.ftueArrowGuideCompleted) onboardingLegend.classList.remove('hidden');
-  window.pinnedNoteId = data.pinnedNoteId;
   if (data.notesArray) allNotes = data.notesArray;
   if (Array.isArray(data.deletedNotes)) deletedNotes = data.deletedNotes;
   renderNotesList();
+
 
   if (data.startupTab === 'new') {
     createNewNote();
   }
 
-  if (isSidePanel && data.pinnedNoteId !== undefined) {
-    const pinnedNote = allNotes.find(note => String(note.id) === String(data.pinnedNoteId));
-    if (pinnedNote) openEditor(pinnedNote.id);
-  }
 });
 
 btnBold.addEventListener('click', () => document.execCommand('bold', false, null));
@@ -236,6 +230,31 @@ function renderNotesList(filterText = '') {
   filteredNotes.forEach(note => {
     const card = document.createElement('div');
     card.className = `note-card ${note.color}`;
+    card.draggable = !showRecentlyDeletedOnly;
+    card.title = 'Drag note onto the page to post it';
+
+    card.addEventListener('dragstart', event => {
+      if (!event.dataTransfer || note.id === null || note.id === undefined) return;
+      event.dataTransfer.effectAllowed = 'copy';
+      event.dataTransfer.setData('application/x-sticky-note-id', String(note.id));
+      event.dataTransfer.setData('text/plain', `sticky-note:${note.id}`);
+      event.dataTransfer.setDragImage(card, 12, 12);
+      chrome.storage.local.set({ activeDragNoteId: String(note.id) });
+      card.classList.add('dragging');
+    });
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      chrome.storage.local.remove('activeDragNoteId');
+      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
+        const activeTab = tabs[0];
+        if (activeTab && activeTab.id !== undefined) {
+          chrome.tabs.sendMessage(activeTab.id, {
+            type: 'commitDraggedNote',
+            noteId: String(note.id)
+          }).catch(() => {});
+        }
+      });
+    });
     
     const textDiv = document.createElement('div');
     textDiv.className = 'note-text-preview';
@@ -324,11 +343,14 @@ recentlyDeletedBtn.addEventListener('click', () => {
   renderNotesList(searchInput.value);
 });
 
-insertChecklistBtn.addEventListener('click', () => {
+function toggleList(command) {
   noteArea.focus();
-  document.execCommand('insertHTML', false, '<div class="checklist-line"><input type="checkbox"><span>New task</span></div>');
-  saveNoteContent();
-});
+  document.execCommand(command, false, null);
+  noteArea.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+btnOrderedList.addEventListener('click', () => toggleList('insertOrderedList'));
+btnUnorderedList.addEventListener('click', () => toggleList('insertUnorderedList'));
 
 function openEditor(id, newlyCreated = false) {
   currentNoteId = id;
@@ -341,8 +363,6 @@ function openEditor(id, newlyCreated = false) {
   renderTagChips();
   noteCategoryInput.value = noteObj ? getNoteCategory(noteObj) : '';
   isFavorite = noteObj ? noteObj.favorite === true : false;
-  isPinned = noteObj ? String(noteObj.id) === String(getPinnedNoteId()) : false;
-  updatePinButton();
   updateFavoriteButton();
   
   isLocked = false;
@@ -356,7 +376,9 @@ function openEditor(id, newlyCreated = false) {
   editView.classList.remove('hidden');
 }
 
-backBtn.addEventListener('click', () => {
+backBtn.addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
   clearTimeout(saveTimeout);
   const noteIndex = allNotes.findIndex(n => n.id === currentNoteId);
   const noteText = noteArea.innerText.trim();
@@ -374,7 +396,7 @@ backBtn.addEventListener('click', () => {
 
   editView.classList.add('hidden');
   menuView.classList.remove('hidden');
-  renderNotesList(searchInput.value); 
+  renderNotesList(searchInput.value);
 });
 
 function createNewNote() {
@@ -498,6 +520,11 @@ confirmDeleteBtn.addEventListener('click', () => {
   deletedNote = deletedIndex === -1 ? null : { note: allNotes[deletedIndex], index: deletedIndex };
   if (deletedNote) deletedNotes.unshift({ ...deletedNote.note, deletedAt: Date.now() });
   allNotes = allNotes.filter(n => n.id !== currentNoteId);
+  chrome.storage.sync.get(['floatingNotes'], data => {
+    const floatingNotes = (Array.isArray(data.floatingNotes) ? data.floatingNotes : [])
+      .filter(item => String(item.noteId) !== String(currentNoteId));
+    chrome.storage.sync.set({ floatingNotes });
+  });
   saveToStorage();
   closeDeleteModal();
   editView.classList.add('hidden');
@@ -625,37 +652,3 @@ function saveToStorage() {
   });
 }
 
-function getPinnedNoteId() {
-  return window.pinnedNoteId;
-}
-
-function updatePinButton() {
-  pinBtn.classList.toggle('favorite-active', isPinned);
-  pinBtn.title = isPinned ? 'Unpin note from Side Panel' : 'Keep note open in Side Panel';
-  pinBtn.setAttribute('aria-label', pinBtn.title);
-}
-
-pinBtn.addEventListener('click', () => {
-  if (!currentNoteId) return;
-  isPinned = !isPinned;
-  window.pinnedNoteId = isPinned ? currentNoteId : null;
-  updatePinButton();
-  const storageUpdate = isPinned
-    ? { notesArray: allNotes, pinnedNoteId: currentNoteId }
-    : { notesArray: allNotes };
-  if (!isPinned) {
-    chrome.storage.sync.remove('pinnedNoteId');
-  }
-  chrome.storage.sync.set(storageUpdate, () => {
-    if (isPinned) {
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const activeTab = tabs[0];
-        if (activeTab && activeTab.id !== undefined) {
-          chrome.runtime.sendMessage({ type: 'showPinnedOverlay', tabId: activeTab.id });
-        }
-      });
-      window.close();
-    }
-    statusText.textContent = isPinned ? 'Pinned in Side Panel' : 'Unpinned';
-  });
-});

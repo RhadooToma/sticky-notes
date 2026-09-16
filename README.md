@@ -16,6 +16,12 @@ Sticky Notes helps you capture ideas, quotes, links, and small tasks while brows
 - Export and restore notes with JSON backups
 - Undo accidental deletions
 - Sync notes through Chrome storage
+- Drag notes from the notes list onto a web page as floating post-its
+- Keep each post-it attached to the exact page where it was placed
+- Move post-its and keep their positions after reloads
+- Lock or close post-its directly on the page
+- Use numbered and bulleted lists in the editor
+- Clear floating post-its when the extension is installed for the first time
 
 ## Preview
 
@@ -29,6 +35,10 @@ Sticky Notes helps you capture ideas, quotes, links, and small tasks while brows
 2. Enable **Developer mode**.
 3. Click **Load unpacked**.
 4. Select this project folder.
+
+After changing the extension files, click **Reload** on the extension card and
+reload the page being tested. Floating post-its are page-specific and are not
+copied to other tabs.
 
 ## Publish
 

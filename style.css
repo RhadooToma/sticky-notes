@@ -237,6 +237,9 @@ body {
   justify-content: space-between;
 }
 
+.note-card[draggable="true"] { cursor: grab; }
+.note-card[draggable="true"].dragging { opacity: 0.55; }
+
 .note-card:hover {
   box-shadow: 0 8px 18px rgba(45, 48, 45, 0.12);
   border-color: var(--border-strong);
@@ -419,6 +422,14 @@ body.dark-mode .note-category {
   transition: 0.15s;
 }
 
+#btnOrderedList,
+#btnUnorderedList {
+  font-family: 'Segoe UI', sans-serif;
+  font-size: 9px;
+  line-height: 7px;
+  font-weight: 600;
+}
+
 .format-toolbar button:hover {
   background: #eee7dc;
   color: #2d302d;
@@ -448,7 +459,7 @@ body.dark-mode .note-category {
   border: 0;
   outline: 0;
   background: transparent;
-  color: #3d413d;
+  color: var(--text);
   font: inherit;
   font-size: 12px;
 }
@@ -461,7 +472,7 @@ body.dark-mode .note-category {
 #noteUrlDisplay {
   min-width: 0;
   overflow: hidden;
-  color: #3d413d;
+  color: var(--text);
   font-size: 12px;
   font-weight: 400;
   text-overflow: ellipsis;
@@ -475,7 +486,7 @@ body.dark-mode .note-category {
   outline: none;
   overflow-y: auto;
   line-height: 1.6;
-  color: #2d302d;
+  color: var(--text);
 }
 
 #noteArea:empty:before {
@@ -488,12 +499,27 @@ body.dark-mode .note-category {
 .checklist-line {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 6px 0;
+  gap: 10px;
+  min-height: 28px;
+  margin: 4px 0;
 }
 
 .checklist-line input {
+  flex: 0 0 auto;
+  width: 15px;
+  height: 15px;
   accent-color: var(--accent);
+}
+
+.checklist-line span {
+  min-width: 0;
+  flex: 1;
+  outline: none;
+}
+
+.checklist-line:has(input:checked) span {
+  color: var(--text-muted);
+  text-decoration: line-through;
 }
 
 body.dark-mode #noteArea[contenteditable="false"] {

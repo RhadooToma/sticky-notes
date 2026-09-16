@@ -8,7 +8,23 @@ function createContextMenu() {
   });
 }
 
-chrome.runtime.onInstalled.addListener(createContextMenu);
+chrome.runtime.onInstalled.addListener(details => {
+  createContextMenu();
+  if (details.reason === 'install') {
+    chrome.storage.sync.remove(['floatingNotes', 'pinnedNoteId', 'pinnedNotePosition']);
+  }
+});
+
+chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message.type === 'openNativeNotesPopup') {
+    if (chrome.action && typeof chrome.action.openPopup === 'function') {
+      chrome.action.openPopup().catch(() => {});
+    }
+    return;
+  }
+  if (message.type !== 'getTopPageUrl') return;
+  sendResponse({ url: sender.tab && sender.tab.url ? sender.tab.url : '' });
+});
 
 chrome.tabs.onActivated.addListener(activeInfo => {
   chrome.scripting.executeScript({
@@ -23,29 +39,6 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     target: { tabId },
     files: ['content.js']
   }).catch(() => {});
-});
-
-chrome.runtime.onMessage.addListener((message, sender) => {
-  if (message.type === 'showPinnedOverlay' && message.tabId !== undefined) {
-    chrome.scripting.executeScript({
-      target: { tabId: message.tabId },
-      files: ['content.js']
-    }).catch(() => {});
-    return;
-  }
-
-  if (message.type !== 'openPinnedSidePanel') return;
-
-  chrome.windows.getAll({ windowTypes: ['normal'] }, windows => {
-    const targetWindow = windows.find(window => window.focused) || windows[0];
-    if (!targetWindow || targetWindow.id === undefined) return;
-
-    chrome.sidePanel.open({ windowId: targetWindow.id }, () => {
-      if (sender.tab && sender.tab.windowId !== targetWindow.id) {
-        chrome.windows.remove(sender.tab.windowId);
-      }
-    });
-  });
 });
 
 chrome.contextMenus.onClicked.addListener((info, tab) => {
