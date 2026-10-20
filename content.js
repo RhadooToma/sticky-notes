@@ -1,4 +1,5 @@
 (() => {
+  if (window.top !== window.self) return;
   if (window.__stickyNotesOverlayLoaded) return;
   window.__stickyNotesOverlayLoaded = true;
 
@@ -16,6 +17,9 @@
     .card { position: absolute; width: 280px; box-sizing: border-box; padding: 16px 16px 22px; border: 1px solid #e2d76d; border-radius: 1px; background: #fff994; color: #2d302d; box-shadow: 0 8px 20px rgba(31, 38, 35, .2); font: 14px/1.45 'Trebuchet MS', 'Segoe UI', sans-serif; overflow: hidden; pointer-events: auto; }
     .card::before { content: ''; position: absolute; left: 0; top: 0; width: 30px; height: 30px; background: #d3c44f; clip-path: polygon(0 0, 100% 0, 0 100%); pointer-events: none; }
     .card::after { content: ''; position: absolute; left: 0; top: 0; width: 27px; height: 27px; background: #fff994; clip-path: polygon(0 0, 100% 0, 0 100%); box-shadow: 2px 2px 3px rgba(111, 101, 29, .28); pointer-events: none; }
+    .card.color-purple { background: #f1e2d5; border-color: #d6b8a2; }
+    .card.color-purple::before { background: #c29d82; }
+    .card.color-purple::after { background: #f1e2d5; box-shadow: 2px 2px 3px rgba(90, 65, 45, .28); }
     .bar { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding-left: 22px; color: #68706a; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: grab; user-select: none; }
     .bar.dragging { cursor: grabbing; }
     .controls { display: flex; align-items: center; gap: 6px; }
@@ -48,103 +52,146 @@
   }
 
   function getPageKey() {
-    try {
-      return window.top.location.href;
-    } catch (error) {
-      return window.location.href;
-    }
+    return window.location.href;
   }
 
   let pageKey = getPageKey();
-  const isTopFrame = window.top === window.self;
-  if (isTopFrame) {
-    document.querySelectorAll('iframe[data-sticky-notes-menu], iframe[src*="popup.html?all-notes=1"]').forEach(frame => frame.remove());
-  }
-  if (!isTopFrame) {
-    chrome.runtime.sendMessage({ type: 'getTopPageUrl' }, response => {
-      if (response && response.url) pageKey = response.url;
+
+  function saveDroppedNote(noteId, position) {
+    if (!noteId || noteId === 'null' || noteId === 'undefined') return;
+    chrome.storage.sync.get(['floatingNotes'], data => {
+      const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
+      const existing = floatingNotes.find(item => String(item.noteId) === String(noteId) && item.pageKey === pageKey);
+      if (existing) {
+        existing.left = position.left;
+        existing.top = position.top;
+        existing.visible = true;
+      } else {
+        floatingNotes.push({ noteId, pageKey, left: position.left, top: position.top, visible: true });
+      }
+      chrome.storage.sync.set({ floatingNotes }, () => {
+        chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
+      });
     });
   }
-  function openNotesMenu() {
-    chrome.runtime.sendMessage({ type: 'openNativeNotesPopup' });
+
+  function savePosition(noteId, position) {
+    saveDroppedNote(noteId, position);
   }
+
   function createCard(note, position) {
     const card = document.createElement('div');
-    card.className = 'card';
+    const noteColor = note.color === 'color-purple' ? 'color-purple' : 'color-yellow';
+    card.className = `card ${noteColor}`;
     card.style.left = `${Math.max(0, position.left)}px`;
     card.style.top = `${Math.max(0, position.top)}px`;
+
     const bar = document.createElement('div');
     bar.className = 'bar';
     bar.textContent = 'Sticky note';
+
     const controls = document.createElement('div');
     controls.className = 'controls';
+
     const lockButton = document.createElement('button');
     lockButton.className = 'control';
     lockButton.type = 'button';
     lockButton.title = 'Unlock note';
     lockButton.innerHTML = iconLocked;
+
     const closeButton = document.createElement('button');
     closeButton.className = 'control';
     closeButton.type = 'button';
     closeButton.title = 'Close note';
     closeButton.textContent = '×';
+
     controls.append(lockButton, closeButton);
     bar.appendChild(controls);
+
     const text = document.createElement('div');
     text.className = 'text';
     text.textContent = plainText(note.text);
+
     const site = document.createElement('div');
     site.className = 'site';
     site.textContent = note.url || '';
+
     card.append(bar, text, site);
     layer.appendChild(card);
 
     let locked = true;
     let dragState = null;
+
+    function flushTextSave() {
+      if (editingId === null) return;
+      clearTimeout(saveTimer);
+      chrome.storage.sync.get(['notesArray'], data => {
+        const notes = Array.isArray(data.notesArray) ? data.notesArray : [];
+        const storedNote = notes.find(item => String(item.id) === String(note.id));
+        if (storedNote) {
+          storedNote.text = `<p>${escapeHtml(text.textContent)}</p>`;
+          chrome.storage.sync.set({ notesArray: notes });
+        }
+        editingId = null;
+      });
+    }
+
     lockButton.addEventListener('click', () => {
+      if (!locked) flushTextSave();
       locked = !locked;
       text.contentEditable = String(!locked);
       lockButton.innerHTML = locked ? iconLocked : iconUnlocked;
+      lockButton.title = locked ? 'Unlock note' : 'Lock note';
       if (!locked) text.focus();
     });
+
     closeButton.addEventListener('click', () => {
       chrome.storage.sync.get(['floatingNotes'], data => {
         const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
         const item = floatingNotes.find(entry => String(entry.noteId) === String(note.id) && entry.pageKey === pageKey);
         if (item) item.visible = false;
-        chrome.storage.sync.set({ floatingNotes });
+        chrome.storage.sync.set({ floatingNotes }, () => {
+        chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
       });
-      openNotesMenu();
+      });
     });
+
     bar.addEventListener('pointerdown', event => {
       if (event.target.closest('button')) return;
       dragState = { pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, left: position.left, top: position.top };
       bar.classList.add('dragging');
       bar.setPointerCapture(event.pointerId);
     });
+
     bar.addEventListener('pointermove', event => {
       if (!dragState || dragState.pointerId !== event.pointerId) return;
-      position.left = Math.max(0, dragState.left + event.clientX - dragState.startX);
-      position.top = Math.max(0, dragState.top + event.clientY - dragState.startY);
+      const maxLeft = Math.max(0, window.innerWidth - 60);
+      const maxTop = Math.max(0, window.innerHeight - 40);
+      position.left = Math.min(maxLeft, Math.max(0, dragState.left + event.clientX - dragState.startX));
+      position.top = Math.min(maxTop, Math.max(0, dragState.top + event.clientY - dragState.startY));
       card.style.left = `${position.left}px`;
       card.style.top = `${position.top}px`;
     });
+
     bar.addEventListener('pointerup', event => {
       if (!dragState || dragState.pointerId !== event.pointerId) return;
       dragState = null;
       bar.classList.remove('dragging');
       savePosition(note.id, position);
     });
+
     bar.addEventListener('pointercancel', () => {
       dragState = null;
       bar.classList.remove('dragging');
     });
+
     bar.addEventListener('lostpointercapture', () => {
       if (!dragState) return;
       dragState = null;
       bar.classList.remove('dragging');
       savePosition(note.id, position);
     });
+
     text.addEventListener('input', () => {
       if (locked) return;
       editingId = note.id;
@@ -155,14 +202,17 @@
           const storedNote = notes.find(item => String(item.id) === String(note.id));
           if (!storedNote) return;
           storedNote.text = `<p>${escapeHtml(text.textContent)}</p>`;
-          chrome.storage.sync.set({ notesArray: notes }, () => { editingId = null; });
+          chrome.storage.sync.set({ notesArray: notes }, () => {
+            editingId = null;
+          });
         });
       }, 450);
     });
+
+    text.addEventListener('blur', flushTextSave);
   }
 
   function render(data) {
-    if (!isTopFrame) return;
     const notes = Array.isArray(data.notesArray) ? data.notesArray : [];
     const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
     const entries = floatingNotes.map(item => ({ item, note: notes.find(note => String(note.id) === String(item.noteId)) }))
@@ -175,8 +225,8 @@
     if (!dataTransfer) return '';
     const customId = String(dataTransfer.getData('application/x-sticky-note-id') || '');
     if (customId) return customId;
-    const plainText = String(dataTransfer.getData('text/plain') || '');
-    const noteId = plainText.startsWith('sticky-note:') ? plainText.slice('sticky-note:'.length) : '';
+    const plain = String(dataTransfer.getData('text/plain') || '');
+    const noteId = plain.startsWith('sticky-note:') ? plain.slice('sticky-note:'.length) : '';
     return noteId && noteId !== 'null' && noteId !== 'undefined' ? noteId : '';
   }
 
@@ -191,6 +241,7 @@
     dropHint.classList.add('visible');
     clearTimeout(dropHintTimer);
   }, true);
+
   window.addEventListener('dragover', event => {
     if (!isStickyNoteDrag(event.dataTransfer)) return;
     event.preventDefault();
@@ -205,6 +256,7 @@
       chrome.storage.local.remove('lastDragPosition');
     }, 1200);
   }, true);
+
   window.addEventListener('dragleave', event => {
     if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
       lastDragPosition = null;
@@ -213,6 +265,7 @@
       dropHint.classList.remove('visible');
     }
   }, true);
+
   window.addEventListener('drop', event => {
     const transferredNoteId = getDraggedNoteId(event.dataTransfer);
     const hasStickyPayload = Boolean(transferredNoteId);
@@ -221,21 +274,12 @@
     event.stopPropagation();
     clearTimeout(dropHintTimer);
     dropHint.classList.remove('visible');
+
     const saveDrop = noteId => {
       if (!noteId || noteId === 'null' || noteId === 'undefined') return;
-      chrome.storage.sync.get(['floatingNotes'], data => {
-        const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
-        const existing = floatingNotes.find(item => String(item.noteId) === String(noteId) && item.pageKey === pageKey);
-        if (existing) {
-          existing.left = event.clientX;
-          existing.top = event.clientY;
-          existing.visible = true;
-        } else {
-          floatingNotes.push({ noteId, pageKey, left: event.clientX, top: event.clientY, visible: true });
-        }
-        chrome.storage.sync.set({ floatingNotes });
-      });
+      saveDroppedNote(noteId, { left: event.clientX, top: event.clientY });
     };
+
     if (transferredNoteId) {
       saveDrop(transferredNoteId);
       lastDragPosition = null;
@@ -246,6 +290,7 @@
       saveDrop(data.activeDragNoteId);
     });
   }, true);
+
   chrome.runtime.onMessage.addListener(message => {
     if (message.type !== 'commitDraggedNote') return;
     if (lastDragPosition) {
@@ -254,34 +299,34 @@
       return;
     }
     chrome.storage.local.get(['lastDragPosition'], data => {
-      if (data.lastDragPosition) saveDroppedNote(message.noteId, data.lastDragPosition);
+      const pos = data.lastDragPosition || { left: 40, top: 40 };
+      saveDroppedNote(message.noteId, pos);
       dropHint.classList.remove('visible');
     });
   });
 
-  function saveDroppedNote(noteId, position) {
-    if (!noteId || noteId === 'null' || noteId === 'undefined') return;
-    chrome.storage.sync.get(['floatingNotes'], data => {
-      const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
-      const existing = floatingNotes.find(item => String(item.noteId) === String(noteId) && item.pageKey === pageKey);
-      if (existing) {
-        existing.left = position.left;
-        existing.top = position.top;
-        existing.visible = true;
-      } else {
-        floatingNotes.push({ noteId, pageKey, left: position.left, top: position.top, visible: true });
-      }
-      chrome.storage.sync.set({ floatingNotes });
-    });
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync') return;
+    if (editingId === null) {
+      chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
+    }
+  });
+
+  chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
+
+  // Monitor URL changes for Single Page Applications
+  function checkUrlChange() {
+    const currentUrl = window.location.href;
+    if (currentUrl !== pageKey) {
+      pageKey = currentUrl;
+      chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
+    }
   }
-  if (isTopFrame) {
-    chrome.storage.onChanged.addListener(() => {
-      if (editingId === null) chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
-    });
-    chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);
-  }
+  window.addEventListener('popstate', checkUrlChange);
+  window.addEventListener('hashchange', checkUrlChange);
+  setInterval(checkUrlChange, 1500);
 
   function escapeHtml(value) {
-    return value.replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
+    return String(value || '').replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character]));
   }
 })();

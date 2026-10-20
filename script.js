@@ -1,3 +1,7 @@
+if (new URLSearchParams(window.location.search).has('sidepanel')) {
+  document.body.classList.add('sidepanel-mode');
+}
+
 const menuView = document.getElementById('menuView');
 const editView = document.getElementById('editView');
 const notesList = document.getElementById('notesList');
@@ -8,7 +12,9 @@ const searchInput = document.getElementById('searchInput');
 const siteFilterBtn = document.getElementById('siteFilterBtn');
 const favoriteFilterBtn = document.getElementById('favoriteFilterBtn');
 const recentlyDeletedBtn = document.getElementById('recentlyDeletedBtn');
+const clearDeletedBtn = document.getElementById('clearDeletedBtn');
 const categoryFilter = document.getElementById('categoryFilter');
+const sortSelect = document.getElementById('sortSelect');
 const searchContainer = document.getElementById('searchContainer');
 const onboardingLegend = document.getElementById('onboardingLegend');
 
@@ -55,6 +61,8 @@ let isFavorite = false;
 let editingTags = [];
 let deletedNotes = [];
 let isDarkMode = false;
+let currentThemeSetting = 'light';
+let currentSortOrder = 'newest';
 let showRecentlyDeletedOnly = false;
 
 function dismissOnboarding() {
@@ -69,13 +77,35 @@ settingsBtn.addEventListener('click', () => {
   chrome.tabs.create({ url: chrome.runtime.getURL('settings.html') });
 });
 
+function applyAccent(accent) {
+  const colors = { teal: '#3f7568', amber: '#d08b3e', blue: '#4c83a8', rose: '#b96b72' };
+  document.documentElement.style.setProperty('--accent', colors[accent] || colors.teal);
+}
+
+function resolveTheme(theme) {
+  if (theme === 'system') {
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  }
+  return theme === 'dark' ? 'dark' : 'light';
+}
+
 function applyTheme(theme) {
-  isDarkMode = theme === 'dark';
+  currentThemeSetting = theme || 'light';
+  const effectiveTheme = resolveTheme(currentThemeSetting);
+  isDarkMode = effectiveTheme === 'dark';
   document.body.classList.toggle('dark-mode', isDarkMode);
   themeToggleBtn.title = isDarkMode ? 'Switch to light mode' : 'Switch to dark mode';
   themeToggleBtn.setAttribute('aria-label', themeToggleBtn.title);
   themeToggleBtn.querySelector('.theme-icon-moon').classList.toggle('hidden', isDarkMode);
   themeToggleBtn.querySelector('.theme-icon-sun').classList.toggle('hidden', !isDarkMode);
+}
+
+if (window.matchMedia) {
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (currentThemeSetting === 'system') {
+      applyTheme('system');
+    }
+  });
 }
 
 themeToggleBtn.addEventListener('click', () => {
@@ -122,6 +152,12 @@ function commitTag() {
 function getNoteCategory(note) {
   const category = typeof note.category === 'string' ? note.category.trim() : '';
   return category.toLowerCase() === 'general' ? '' : category;
+}
+
+function getNotePlainText(note) {
+  const temp = document.createElement('div');
+  temp.innerHTML = note.text || '';
+  return (temp.innerText || temp.textContent || '').trim().toLowerCase();
 }
 
 function updateCategoryFilterOptions() {
@@ -178,38 +214,77 @@ function updateRecentlyDeletedButton() {
   recentlyDeletedBtn.classList.toggle('active', showRecentlyDeletedOnly);
   recentlyDeletedBtn.textContent = showRecentlyDeletedOnly ? 'Back to Notes' : 'Recently Deleted';
   searchContainer.classList.toggle('recently-deleted', showRecentlyDeletedOnly);
+  if (clearDeletedBtn) {
+    clearDeletedBtn.classList.toggle('hidden', !showRecentlyDeletedOnly || deletedNotes.length === 0);
+  }
 }
 
-chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-  currentSite = getDomain(tabs[0] && tabs[0].url);
+chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+  const activeTab = (tabs && tabs[0]) || {};
+  currentSite = getDomain(activeTab.url);
   updateSiteFilterButton();
   renderNotesList(searchInput.value);
 });
 
-chrome.storage.sync.get(['notesArray', 'deletedNotes', 'startupTab', 'settingsTheme', 'ftueArrowGuideCompleted'], (data) => {
+chrome.storage.sync.get(['notesArray', 'deletedNotes', 'startupTab', 'settingsTheme', 'settingsAccent', 'notesSortOrder', 'ftueArrowGuideCompleted'], (data) => {
   applyTheme(data.settingsTheme || 'light');
+  applyAccent(data.settingsAccent || 'teal');
   if (!data.ftueArrowGuideCompleted) onboardingLegend.classList.remove('hidden');
-  if (data.notesArray) allNotes = data.notesArray;
+  if (Array.isArray(data.notesArray)) allNotes = data.notesArray;
   if (Array.isArray(data.deletedNotes)) deletedNotes = data.deletedNotes;
+  if (data.notesSortOrder) {
+    currentSortOrder = data.notesSortOrder;
+    if (sortSelect) sortSelect.value = currentSortOrder;
+  }
   renderNotesList();
-
 
   if (data.startupTab === 'new') {
     createNewNote();
   }
-
 });
 
-btnBold.addEventListener('click', () => document.execCommand('bold', false, null));
-btnItalic.addEventListener('click', () => document.execCommand('italic', false, null));
-btnUnderline.addEventListener('click', () => document.execCommand('underline', false, null));
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName !== 'sync') return;
+  if (changes.settingsTheme) applyTheme(changes.settingsTheme.newValue || 'light');
+  if (changes.settingsAccent) applyAccent(changes.settingsAccent.newValue || 'teal');
+  if (changes.notesArray) {
+    allNotes = Array.isArray(changes.notesArray.newValue) ? changes.notesArray.newValue : [];
+    if (editView.classList.contains('hidden')) {
+      renderNotesList(searchInput.value);
+    }
+  }
+  if (changes.deletedNotes) {
+    deletedNotes = Array.isArray(changes.deletedNotes.newValue) ? changes.deletedNotes.newValue : [];
+    if (showRecentlyDeletedOnly && editView.classList.contains('hidden')) {
+      renderNotesList(searchInput.value);
+    }
+  }
+});
+
+function formatDoc(command) {
+  noteArea.focus();
+  document.execCommand(command, false, null);
+  noteArea.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+[btnBold, btnItalic, btnUnderline, btnOrderedList, btnUnorderedList].forEach(btn => {
+  if (btn) btn.addEventListener('mousedown', event => event.preventDefault());
+});
+
+btnBold.addEventListener('click', () => formatDoc('bold'));
+btnItalic.addEventListener('click', () => formatDoc('italic'));
+btnUnderline.addEventListener('click', () => formatDoc('underline'));
+btnOrderedList.addEventListener('click', () => formatDoc('insertOrderedList'));
+btnUnorderedList.addEventListener('click', () => formatDoc('insertUnorderedList'));
 
 function renderNotesList(filterText = '') {
   updateCategoryFilterOptions();
+  updateRecentlyDeletedButton();
   notesList.innerHTML = '';
   const sourceNotes = showRecentlyDeletedOnly ? deletedNotes : allNotes;
   const filteredNotes = sourceNotes.filter(note => {
     if (showRecentlyDeletedOnly) {
+      if (!filterText) return true;
       const deletedText = document.createElement('div');
       deletedText.innerHTML = note.text || '';
       return (deletedText.innerText || deletedText.textContent).toLowerCase().includes(filterText.toLowerCase());
@@ -225,13 +300,48 @@ function renderNotesList(filterText = '') {
     const tagsMatch = getNoteTags(note).join(' ').toLowerCase().includes(filterText.toLowerCase());
     const categoryMatch = getNoteCategory(note).toLowerCase().includes(filterText.toLowerCase());
     return textMatch || urlMatch || tagsMatch || categoryMatch;
-  }).sort((first, second) => Number(second.favorite === true) - Number(first.favorite === true));
+  });
+
+  filteredNotes.sort((first, second) => {
+    if (showRecentlyDeletedOnly) {
+      return Number(second.deletedAt || 0) - Number(first.deletedAt || 0);
+    }
+    if (currentSortOrder === 'favorites') {
+      if (Boolean(second.favorite) !== Boolean(first.favorite)) {
+        return Number(second.favorite === true) - Number(first.favorite === true);
+      }
+      return Number(second.id) - Number(first.id);
+    }
+    if (currentSortOrder === 'title') {
+      return getNotePlainText(first).localeCompare(getNotePlainText(second));
+    }
+    if (currentSortOrder === 'oldest') {
+      return Number(first.id) - Number(second.id);
+    }
+    // 'newest' default
+    return Number(second.id) - Number(first.id);
+  });
+
+  if (filteredNotes.length === 0) {
+    const emptyState = document.createElement('div');
+    emptyState.className = 'empty-state';
+    if (showRecentlyDeletedOnly) {
+      emptyState.textContent = 'No deleted notes.';
+    } else if (allNotes.length === 0) {
+      emptyState.textContent = 'No notes yet. Click "+ New" to create one!';
+    } else {
+      emptyState.textContent = 'No notes match your filters.';
+    }
+    notesList.appendChild(emptyState);
+    return;
+  }
 
   filteredNotes.forEach(note => {
     const card = document.createElement('div');
-    card.className = `note-card ${note.color}`;
+    const noteColor = note.color === 'color-purple' ? 'color-purple' : 'color-yellow';
+    card.className = `note-card ${noteColor}`;
     card.draggable = !showRecentlyDeletedOnly;
-    card.title = 'Drag note onto the page to post it';
+    card.title = showRecentlyDeletedOnly ? '' : 'Drag note onto the page to post it';
 
     card.addEventListener('dragstart', event => {
       if (!event.dataTransfer || note.id === null || note.id === undefined) return;
@@ -242,16 +352,25 @@ function renderNotesList(filterText = '') {
       chrome.storage.local.set({ activeDragNoteId: String(note.id) });
       card.classList.add('dragging');
     });
+
     card.addEventListener('dragend', () => {
       card.classList.remove('dragging');
       chrome.storage.local.remove('activeDragNoteId');
-      chrome.tabs.query({ active: true, currentWindow: true }, tabs => {
-        const activeTab = tabs[0];
-        if (activeTab && activeTab.id !== undefined) {
-          chrome.tabs.sendMessage(activeTab.id, {
+      const sendCommit = tab => {
+        if (tab && tab.id !== undefined) {
+          chrome.tabs.sendMessage(tab.id, {
             type: 'commitDraggedNote',
             noteId: String(note.id)
           }).catch(() => {});
+        }
+      };
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+        if (tabs && tabs[0]) {
+          sendCommit(tabs[0]);
+        } else {
+          chrome.tabs.query({ active: true, currentWindow: true }, fallbackTabs => {
+            if (fallbackTabs && fallbackTabs[0]) sendCommit(fallbackTabs[0]);
+          });
         }
       });
     });
@@ -259,9 +378,9 @@ function renderNotesList(filterText = '') {
     const textDiv = document.createElement('div');
     textDiv.className = 'note-text-preview';
     if (note.text && note.text.trim() !== '') {
-        textDiv.innerHTML = note.text;
+      textDiv.innerHTML = note.text;
     } else {
-        textDiv.innerHTML = '<span style="color:#80868b; font-style:italic;">Empty note...</span>';
+      textDiv.innerHTML = '<span style="color:#80868b; font-style:italic;">Empty note...</span>';
     }
     card.appendChild(textDiv);
 
@@ -291,15 +410,13 @@ function renderNotesList(filterText = '') {
       categoryBadge.textContent = category;
       card.appendChild(categoryBadge);
     }
-
-    if (note.url) {
-      const urlSpan = document.createElement('span');
-      urlSpan.className = 'note-url';
-      urlSpan.textContent = note.url;
-      card.appendChild(urlSpan);
-    }
     
     if (showRecentlyDeletedOnly) {
+      const actionGroup = document.createElement('div');
+      actionGroup.style.display = 'flex';
+      actionGroup.style.gap = '8px';
+      actionGroup.style.marginTop = '12px';
+
       const restoreButton = document.createElement('button');
       restoreButton.className = 'restore-note-btn';
       restoreButton.type = 'button';
@@ -308,8 +425,29 @@ function renderNotesList(filterText = '') {
         event.stopPropagation();
         restoreDeletedNote(note.id);
       });
-      card.appendChild(restoreButton);
+
+      const permDeleteButton = document.createElement('button');
+      permDeleteButton.className = 'restore-note-btn';
+      permDeleteButton.style.color = '#a34f43';
+      permDeleteButton.style.borderColor = '#a34f43';
+      permDeleteButton.type = 'button';
+      permDeleteButton.textContent = 'Delete forever';
+      permDeleteButton.addEventListener('click', event => {
+        event.stopPropagation();
+        deletedNotes = deletedNotes.filter(n => String(n.id) !== String(note.id));
+        saveToStorage();
+        renderNotesList(searchInput.value);
+      });
+
+      actionGroup.append(restoreButton, permDeleteButton);
+      card.appendChild(actionGroup);
     } else {
+      if (note.url) {
+        const urlSpan = document.createElement('span');
+        urlSpan.className = 'note-url';
+        urlSpan.textContent = note.url;
+        card.appendChild(urlSpan);
+      }
       card.addEventListener('click', () => openEditor(note.id));
     }
     notesList.appendChild(card);
@@ -320,14 +458,30 @@ searchInput.addEventListener('input', (e) => renderNotesList(e.target.value));
 
 categoryFilter.addEventListener('change', () => renderNotesList(searchInput.value));
 
+if (sortSelect) {
+  sortSelect.addEventListener('change', () => {
+    currentSortOrder = sortSelect.value;
+    chrome.storage.sync.set({ notesSortOrder: currentSortOrder });
+    renderNotesList(searchInput.value);
+  });
+}
+
 siteFilterBtn.addEventListener('click', () => {
   if (!currentSite) return;
+  if (showRecentlyDeletedOnly) {
+    showRecentlyDeletedOnly = false;
+    updateRecentlyDeletedButton();
+  }
   showCurrentSiteOnly = !showCurrentSiteOnly;
   updateSiteFilterButton();
   renderNotesList(searchInput.value);
 });
 
 favoriteFilterBtn.addEventListener('click', () => {
+  if (showRecentlyDeletedOnly) {
+    showRecentlyDeletedOnly = false;
+    updateRecentlyDeletedButton();
+  }
   showFavoritesOnly = !showFavoritesOnly;
   updateFavoriteFilterButton();
   renderNotesList(searchInput.value);
@@ -343,19 +497,19 @@ recentlyDeletedBtn.addEventListener('click', () => {
   renderNotesList(searchInput.value);
 });
 
-function toggleList(command) {
-  noteArea.focus();
-  document.execCommand(command, false, null);
-  noteArea.dispatchEvent(new Event('input', { bubbles: true }));
+if (clearDeletedBtn) {
+  clearDeletedBtn.addEventListener('click', () => {
+    if (deletedNotes.length === 0) return;
+    deletedNotes = [];
+    saveToStorage();
+    renderNotesList(searchInput.value);
+  });
 }
-
-btnOrderedList.addEventListener('click', () => toggleList('insertOrderedList'));
-btnUnorderedList.addEventListener('click', () => toggleList('insertUnorderedList'));
 
 function openEditor(id, newlyCreated = false) {
   currentNoteId = id;
   isNewNote = newlyCreated;
-  const noteObj = allNotes.find(n => n.id === id);
+  const noteObj = allNotes.find(n => String(n.id) === String(id));
   noteArea.innerHTML = noteObj ? noteObj.text : '';
   noteUrlDisplay.textContent = noteObj ? (noteObj.url || 'Unassigned site') : 'Unassigned site';
   editingTags = noteObj ? [...getNoteTags(noteObj)] : [];
@@ -376,14 +530,13 @@ function openEditor(id, newlyCreated = false) {
   editView.classList.remove('hidden');
 }
 
-backBtn.addEventListener('click', event => {
-  event.preventDefault();
-  event.stopPropagation();
+function flushCurrentNoteSave() {
+  if (currentNoteId === null || editView.classList.contains('hidden')) return;
   clearTimeout(saveTimeout);
-  const noteIndex = allNotes.findIndex(n => n.id === currentNoteId);
+  const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
   const noteText = noteArea.innerText.trim();
 
-  if (isNewNote && noteIndex !== -1 && noteText === '') {
+  if (isNewNote && noteIndex !== -1 && noteText === '' && editingTags.length === 0 && !noteCategoryInput.value.trim() && !isFavorite) {
     allNotes.splice(noteIndex, 1);
     saveToStorage();
   } else if (noteIndex !== -1) {
@@ -392,20 +545,28 @@ backBtn.addEventListener('click', event => {
     allNotes[noteIndex].favorite = isFavorite;
     allNotes[noteIndex].category = noteCategoryInput.value.trim();
     saveToStorage();
+    isNewNote = false;
   }
+}
 
+noteArea.addEventListener('blur', flushCurrentNoteSave);
+window.addEventListener('beforeunload', flushCurrentNoteSave);
+window.addEventListener('pagehide', flushCurrentNoteSave);
+
+backBtn.addEventListener('click', event => {
+  event.preventDefault();
+  event.stopPropagation();
+  flushCurrentNoteSave();
+  currentNoteId = null;
   editView.classList.add('hidden');
   menuView.classList.remove('hidden');
   renderNotesList(searchInput.value);
 });
 
 function createNewNote() {
-  chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-    let domainName = "Unknown site";
-    if (tabs[0] && tabs[0].url) {
-      try { domainName = new URL(tabs[0].url).hostname.replace('www.', ''); } 
-      catch (e) { domainName = "Local/internal domain"; }
-    }
+  chrome.tabs.query({ active: true, lastFocusedWindow: true }, (tabs) => {
+    const activeTab = (tabs && tabs[0]) || {};
+    const domainName = getDomain(activeTab.url) || "Unassigned site";
 
     const newNote = {
       id: Date.now(),
@@ -425,27 +586,32 @@ function createNewNote() {
 newNoteBtn.addEventListener('click', createNewNote);
 
 noteArea.addEventListener('input', () => {
+  if (noteArea.innerHTML === '<br>' || noteArea.innerHTML === '<p><br></p>') {
+    noteArea.innerHTML = '';
+  }
   clearTimeout(saveTimeout);
   statusText.textContent = 'Saving...';
   
   saveTimeout = setTimeout(() => {
-    const noteIndex = allNotes.findIndex(n => n.id === currentNoteId);
+    const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
     if (noteIndex !== -1) {
       allNotes[noteIndex].text = noteArea.innerHTML;
       saveToStorage();
       isNewNote = false;
     }
     statusText.textContent = 'Saved ✓';
-    setTimeout(() => { if(!isLocked) statusText.textContent = ''; }, 2000);
+    setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2000);
   }, 500);
 });
 
 noteArea.addEventListener('change', event => {
-  if (!event.target.matches('.checklist-line input')) return;
-  const noteIndex = allNotes.findIndex(note => note.id === currentNoteId);
-  if (noteIndex === -1) return;
-  allNotes[noteIndex].text = noteArea.innerHTML;
-  saveToStorage();
+  if (!event.target.matches('.checklist-line input, input[type="checkbox"]')) return;
+  if (event.target.checked) {
+    event.target.setAttribute('checked', 'checked');
+  } else {
+    event.target.removeAttribute('checked');
+  }
+  flushCurrentNoteSave();
 });
 
 function getTagsFromInput() {
@@ -457,7 +623,7 @@ function saveNoteMetadata() {
   clearTimeout(saveTimeout);
   statusText.textContent = 'Saving...';
   saveTimeout = setTimeout(() => {
-    const noteIndex = allNotes.findIndex(n => n.id === currentNoteId);
+    const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
     if (noteIndex !== -1) {
       allNotes[noteIndex].tags = getTagsFromInput();
       allNotes[noteIndex].favorite = isFavorite;
@@ -490,8 +656,9 @@ favoriteBtn.addEventListener('click', () => {
 });
 
 lockBtn.addEventListener('click', () => {
+  if (!isLocked) flushCurrentNoteSave();
   isLocked = !isLocked;
-  noteArea.setAttribute('contenteditable', !isLocked);
+  noteArea.setAttribute('contenteditable', String(!isLocked));
   formatToolbar.style.display = isLocked ? 'none' : 'flex';
   
   lockBtn.innerHTML = isLocked ? iconLocked : iconUnlocked;
@@ -500,8 +667,8 @@ lockBtn.addEventListener('click', () => {
 
 deleteBtn.addEventListener('click', () => {
   if (isLocked) {
-      alert("Unlock the note first to delete it!");
-      return;
+    alert("Unlock the note first to delete it!");
+    return;
   }
 
   deleteModal.classList.remove('hidden');
@@ -515,11 +682,17 @@ function closeDeleteModal() {
 
 cancelDeleteBtn.addEventListener('click', closeDeleteModal);
 
+function addToDeletedNotes(note) {
+  deletedNotes = [{ ...note, deletedAt: Date.now() }, ...deletedNotes.filter(n => String(n.id) !== String(note.id))].slice(0, 30);
+}
+
 confirmDeleteBtn.addEventListener('click', () => {
-  const deletedIndex = allNotes.findIndex(note => note.id === currentNoteId);
+  const deletedIndex = allNotes.findIndex(note => String(note.id) === String(currentNoteId));
   deletedNote = deletedIndex === -1 ? null : { note: allNotes[deletedIndex], index: deletedIndex };
-  if (deletedNote) deletedNotes.unshift({ ...deletedNote.note, deletedAt: Date.now() });
-  allNotes = allNotes.filter(n => n.id !== currentNoteId);
+  if (deletedNote) {
+    addToDeletedNotes(deletedNote.note);
+  }
+  allNotes = allNotes.filter(n => String(n.id) !== String(currentNoteId));
   chrome.storage.sync.get(['floatingNotes'], data => {
     const floatingNotes = (Array.isArray(data.floatingNotes) ? data.floatingNotes : [])
       .filter(item => String(item.noteId) !== String(currentNoteId));
@@ -527,6 +700,7 @@ confirmDeleteBtn.addEventListener('click', () => {
   });
   saveToStorage();
   closeDeleteModal();
+  currentNoteId = null;
   editView.classList.add('hidden');
   menuView.classList.remove('hidden');
   renderNotesList(searchInput.value);
@@ -651,4 +825,3 @@ function saveToStorage() {
     }
   });
 }
-

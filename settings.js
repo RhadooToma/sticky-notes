@@ -54,15 +54,20 @@ chrome.storage.sync.get([notesKey, 'displayMode', 'startupTab', 'settingsTheme',
 
 document.querySelectorAll('input[name="displayMode"]').forEach(input => input.addEventListener('change', event => saveSetting('displayMode', event.target.value)));
 document.getElementById('startupTab').addEventListener('change', event => saveSetting('startupTab', event.target.value));
+
 document.getElementById('shortcutBtn').addEventListener('click', () => {
-  chrome.tabs.create({ url: 'chrome://extensions/shortcuts' });
+  chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(() => {
+    alert('Please open chrome://extensions/shortcuts in your browser URL bar to configure shortcuts.');
+  });
 });
+
 document.querySelectorAll('.theme-option').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('.theme-option').forEach(item => item.classList.remove('active'));
   button.classList.add('active');
   applyTheme(button.dataset.theme);
   saveSetting('settingsTheme', button.dataset.theme);
 }));
+
 document.querySelectorAll('.accent-option').forEach(button => button.addEventListener('click', () => {
   document.querySelectorAll('.accent-option').forEach(item => item.classList.remove('active'));
   button.classList.add('active');
@@ -72,6 +77,7 @@ document.querySelectorAll('.accent-option').forEach(button => button.addEventLis
 
 document.getElementById('exportBtn').addEventListener('click', () => chrome.storage.sync.get([notesKey], data => downloadJson(Array.isArray(data[notesKey]) ? data[notesKey] : [])));
 document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importInput').click());
+
 document.getElementById('importInput').addEventListener('change', event => {
   const file = event.target.files[0];
   if (!file) return;
@@ -80,7 +86,32 @@ document.getElementById('importInput').addEventListener('change', event => {
     try {
       const backup = JSON.parse(reader.result);
       if (!backup || !Array.isArray(backup.notes)) throw new Error('Invalid backup');
-      chrome.storage.sync.set({ [notesKey]: backup.notes }, () => { renderStats(backup.notes); showSaved(); });
+
+      const importedNotes = backup.notes.filter(note =>
+        note && (typeof note.id === 'number' || typeof note.id === 'string') &&
+        typeof note.text === 'string'
+      ).map(note => ({
+        id: note.id,
+        text: note.text,
+        color: note.color === 'color-purple' ? 'color-purple' : 'color-yellow',
+        url: typeof note.url === 'string' ? note.url : 'Unassigned site',
+        tags: Array.isArray(note.tags) ? note.tags.filter(tag => typeof tag === 'string') : [],
+        favorite: note.favorite === true,
+        category: typeof note.category === 'string' && note.category.trim().toLowerCase() !== 'general'
+          ? note.category.trim()
+          : ''
+      }));
+
+      chrome.storage.sync.get([notesKey], data => {
+        const existingNotes = Array.isArray(data[notesKey]) ? data[notesKey] : [];
+        const existingIds = new Set(existingNotes.map(n => String(n.id)));
+        const uniqueImported = importedNotes.filter(n => !existingIds.has(String(n.id)));
+        const mergedNotes = [...uniqueImported, ...existingNotes];
+        chrome.storage.sync.set({ [notesKey]: mergedNotes }, () => {
+          renderStats(mergedNotes);
+          showSaved();
+        });
+      });
     } catch (error) {
       alert('This file is not a valid Sticky Notes backup.');
     }

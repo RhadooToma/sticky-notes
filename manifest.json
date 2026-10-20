@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "The Stickiest Notes - Never Miss What Matters",
-  "version": "3.8",
+  "version": "3.9",
   "description": "Capture notes, quotes, links, and tasks while browsing, then organize them by site, category, tags, and favorites.",
   "action": {
     "default_popup": "popup.html",
@@ -44,7 +44,7 @@
       "matches": ["<all_urls>"],
       "js": ["content.js"],
       "run_at": "document_idle",
-      "all_frames": true
+      "all_frames": false
     }
   ],
   "side_panel": {

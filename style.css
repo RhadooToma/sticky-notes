@@ -12,13 +12,34 @@ body {
   --surface-muted: #f1ede5;
   --text: #2d302d;
   --text-muted: #68706a;
-  --border: #e1d7c8;
+  --border: var(--border);
   --border-strong: #c9bba7;
   --accent: #3f7568;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
 
 .hidden { display: none !important; }
+
+body.sidepanel-mode {
+  width: 100% !important;
+  height: 100vh !important;
+}
+
+#menuView {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
 
 ::-webkit-scrollbar { width: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -33,7 +54,7 @@ body {
   min-width: 0;
   padding: 10px 12px;
   background-color: #faf7f0;
-  border-bottom: 1px solid #e8dfd1;
+  border-bottom: 1px solid var(--border);
 }
 
 .user-info {
@@ -49,7 +70,7 @@ body {
   text-overflow: ellipsis;
   font-weight: 600;
   font-size: 15px;
-  color: #2d302d;
+  color: var(--text);
   white-space: nowrap;
 }
 
@@ -76,7 +97,7 @@ body {
 
 .actions button:hover {
   background-color: #eee7dc;
-  color: #2d302d;
+  color: var(--text);
 }
 
 .actions button.favorite-active {
@@ -117,7 +138,7 @@ body {
 .search-container {
   padding: 8px 16px;
   background-color: #faf7f0;
-  border-bottom: 1px solid #e8dfd1;
+  border-bottom: 1px solid var(--border);
 }
 
 .search-box {
@@ -125,7 +146,7 @@ body {
   flex: 1;
   align-items: center;
   background-color: #fffdf8;
-  border: 1px solid #e1d7c8;
+  border: 1px solid var(--border);
   border-radius: 8px;
   padding: 8px 12px;
   gap: 8px;
@@ -135,9 +156,9 @@ body {
   max-width: 100%;
   margin-top: 7px;
   padding: 5px 9px;
-  border: 1px solid #e1d7c8;
+  border: 1px solid var(--border);
   border-radius: 5px;
-  background: #fffdf8;
+  background: var(--surface-raised);
   color: #68706a;
   cursor: pointer;
   font: inherit;
@@ -195,10 +216,10 @@ body {
   width: 100%;
   margin-top: 7px;
   padding: 5px 8px;
-  border: 1px solid #e1d7c8;
+  border: 1px solid var(--border);
   border-radius: 5px;
   outline: none;
-  background: #fffdf8;
+  background: var(--surface-raised);
   color: #68706a;
   font: inherit;
   font-size: 11px;
@@ -215,7 +236,7 @@ body {
   background: transparent;
   outline: none;
   font-size: 13px;
-  color: #2d302d;
+  color: var(--text);
 }
 
 #notesList {
@@ -403,7 +424,7 @@ body.dark-mode .note-category {
   display: flex;
   gap: 4px;
   padding: 8px 16px;
-  border-bottom: 1px solid #e8dfd1;
+  border-bottom: 1px solid var(--border);
 }
 
 .format-toolbar button {
@@ -431,8 +452,8 @@ body.dark-mode .note-category {
 }
 
 .format-toolbar button:hover {
-  background: #eee7dc;
-  color: #2d302d;
+  background: var(--surface-muted);
+  color: var(--text);
 }
 
 .site-field {
@@ -440,7 +461,7 @@ body.dark-mode .note-category {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  border-bottom: 1px solid #e8dfd1;
+  border-bottom: 1px solid var(--border);
   color: #68706a;
   font-size: 11px;
 }
@@ -529,7 +550,7 @@ body.dark-mode #noteArea[contenteditable="false"] {
 .footer {
   padding: 8px 16px;
   text-align: right;
-  border-top: 1px solid #e8dfd1;
+  border-top: 1px solid var(--border);
 }
 
 .modal-backdrop {
@@ -547,9 +568,9 @@ body.dark-mode #noteArea[contenteditable="false"] {
   width: 100%;
   box-sizing: border-box;
   padding: 20px;
-  border: 1px solid #e1d7c8;
+  border: 1px solid var(--border);
   border-radius: 12px;
-  background: #fffdf8;
+  background: var(--surface-raised);
   box-shadow: 0 12px 30px rgba(75, 61, 42, 0.2);
   animation: modal-in 0.16s ease-out;
 }
@@ -567,7 +588,7 @@ body.dark-mode #noteArea[contenteditable="false"] {
 
 .confirm-modal h2 {
   margin: 14px 0 6px;
-  color: #2d302d;
+  color: var(--text);
   font-size: 17px;
 }
 
@@ -595,12 +616,12 @@ body.dark-mode #noteArea[contenteditable="false"] {
 }
 
 .modal-cancel {
-  background: #eee7dc;
+  background: var(--surface-muted);
   color: #3d413d;
 }
 
 .modal-cancel:hover {
-  background: #e3d9ca;
+  background: var(--border);
 }
 
 .modal-delete {
@@ -640,7 +661,7 @@ body.dark-mode #noteArea[contenteditable="false"] {
   border-radius: 4px;
   padding: 4px 7px;
   background: #d8a85c;
-  color: #2d302d;
+  color: var(--text);
   cursor: pointer;
   font: inherit;
   font-weight: 700;
@@ -753,4 +774,79 @@ body.dark-mode #noteArea[contenteditable="false"] {
   color: var(--text-muted);
   font-size: 8px;
   white-space: nowrap;
+}
+
+
+/* Dark mode modal & polish overrides */
+body.dark-mode .confirm-modal {
+  background: var(--surface-raised);
+  border-color: var(--border);
+}
+
+body.dark-mode .confirm-modal h2 {
+  color: var(--text);
+}
+
+body.dark-mode .confirm-modal p {
+  color: var(--text-muted);
+}
+
+body.dark-mode .modal-cancel {
+  background: var(--surface-muted);
+  color: var(--text);
+}
+
+body.dark-mode .modal-cancel:hover {
+  background: var(--border);
+}
+
+
+/* Filter, Sort & Pin styling */
+.filter-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 7px;
+}
+
+.filter-buttons .site-filter-btn {
+  margin-top: 0;
+  margin-left: 0;
+}
+
+.dropdown-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.dropdown-row .category-filter,
+.dropdown-row .sort-select {
+  flex: 1;
+  min-width: 0;
+  margin-top: 0;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  outline: none;
+  background: var(--surface-raised);
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 11px;
+}
+
+.dropdown-row .category-filter:focus,
+.dropdown-row .sort-select:focus {
+  border-color: var(--accent);
+}
+
+.search-container.recently-deleted .dropdown-row {
+  display: none;
+}
+
+body.dark-mode .dropdown-row .category-filter,
+body.dark-mode .dropdown-row .sort-select {
+  background-color: var(--surface-raised) !important;
+  border-color: var(--border) !important;
+  color: var(--text-muted);
 }
