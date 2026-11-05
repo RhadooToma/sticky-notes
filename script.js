@@ -397,27 +397,38 @@ function renderNotesList(filterText = '') {
       event.dataTransfer.setDragImage(card, 12, 12);
       chrome.storage.local.set({ activeDragNoteId: String(note.id) });
       card.classList.add('dragging');
-    });
 
-    card.addEventListener('dragend', event => {
-      card.classList.remove('dragging');
-      chrome.storage.local.remove('activeDragNoteId');
-
-      const isSuccess = Boolean(event.dataTransfer && event.dataTransfer.dropEffect && event.dataTransfer.dropEffect !== 'none');
-      const sendNotice = tab => {
+      const sendNotice = (tab, type) => {
         if (tab && tab.id !== undefined) {
-          chrome.tabs.sendMessage(tab.id, {
-            type: isSuccess ? 'commitDraggedNote' : 'dragEnded',
-            noteId: String(note.id)
-          }).catch(() => {});
+          chrome.tabs.sendMessage(tab.id, { type, noteId: String(note.id) }).catch(() => {});
         }
       };
       chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
         if (tabs && tabs[0]) {
-          sendNotice(tabs[0]);
+          sendNotice(tabs[0], 'stickyDragStart');
         } else {
           chrome.tabs.query({ active: true, currentWindow: true }, fallbackTabs => {
-            if (fallbackTabs && fallbackTabs[0]) sendNotice(fallbackTabs[0]);
+            if (fallbackTabs && fallbackTabs[0]) sendNotice(fallbackTabs[0], 'stickyDragStart');
+          });
+        }
+      });
+    });
+
+    card.addEventListener('dragend', () => {
+      card.classList.remove('dragging');
+      chrome.storage.local.remove('activeDragNoteId');
+
+      const sendNotice = (tab, type) => {
+        if (tab && tab.id !== undefined) {
+          chrome.tabs.sendMessage(tab.id, { type, noteId: String(note.id) }).catch(() => {});
+        }
+      };
+      chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
+        if (tabs && tabs[0]) {
+          sendNotice(tabs[0], 'commitDraggedNote');
+        } else {
+          chrome.tabs.query({ active: true, currentWindow: true }, fallbackTabs => {
+            if (fallbackTabs && fallbackTabs[0]) sendNotice(fallbackTabs[0], 'commitDraggedNote');
           });
         }
       });

@@ -59,15 +59,21 @@
   let saveTimer = null;
   let lastDragPosition = null;
   let dropHintTimer = null;
+  let activeDragId = null;
   let isExtensionDragging = false;
+  let lastDropTimestamp = 0;
+
   chrome.storage.local.get(['activeDragNoteId'], data => {
-    isExtensionDragging = Boolean(data && data.activeDragNoteId);
+    if (data && data.activeDragNoteId) {
+      activeDragId = String(data.activeDragNoteId);
+      isExtensionDragging = true;
+    }
   });
 
   function showDropHint() {
     dropHint.classList.add('visible');
     clearTimeout(dropHintTimer);
-    dropHintTimer = setTimeout(hideDropHint, 1200);
+    dropHintTimer = setTimeout(hideDropHint, 1500);
   }
 
   function hideDropHint() {
@@ -308,19 +314,25 @@
   }
 
   function getDraggedNoteId(dataTransfer) {
-    if (!dataTransfer) return '';
-    const customId = String(dataTransfer.getData('application/x-sticky-note-id') || '');
-    if (customId) return customId;
-    const plain = String(dataTransfer.getData('text/plain') || '');
-    const noteId = plain.startsWith('sticky-note:') ? plain.slice('sticky-note:'.length) : '';
-    return noteId && noteId !== 'null' && noteId !== 'undefined' ? noteId : '';
+    if (!dataTransfer) return activeDragId || '';
+    let customId = '';
+    try { customId = String(dataTransfer.getData('application/x-sticky-note-id') || ''); } catch (_) {}
+    if (customId && customId !== 'null' && customId !== 'undefined') return customId;
+    let plain = '';
+    try { plain = String(dataTransfer.getData('text/plain') || ''); } catch (_) {}
+    if (plain.startsWith('sticky-note:')) {
+      const noteId = plain.slice('sticky-note:'.length).trim();
+      if (noteId && noteId !== 'null' && noteId !== 'undefined') return noteId;
+    }
+    return activeDragId || '';
   }
 
   function isStickyNoteDrag(dataTransfer) {
-    if (!dataTransfer) return isExtensionDragging;
+    if (isExtensionDragging) return true;
+    if (!dataTransfer) return false;
     const types = Array.from(dataTransfer.types || []);
     if (types.includes('application/x-sticky-note-id')) return true;
-    if (isExtensionDragging && types.length > 0) return true;
+    if (types.includes('text/plain')) return true;
     return false;
   }
 
@@ -335,87 +347,92 @@
     event.preventDefault();
     try { event.dataTransfer.dropEffect = 'copy'; } catch (_) {}
     lastDragPosition = { left: event.clientX, top: event.clientY };
-    chrome.storage.local.set({ lastDragPosition });
     showDropHint();
   }, true);
 
   window.addEventListener('dragleave', event => {
-    if (!event.relatedTarget || event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
+    if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
       hideDropHint();
     }
   }, true);
 
   window.addEventListener('drop', event => {
-    const transferredNoteId = getDraggedNoteId(event.dataTransfer);
-    const hasStickyPayload = Boolean(transferredNoteId);
-    if (!hasStickyPayload && !isStickyNoteDrag(event.dataTransfer)) return;
+    if (!isStickyNoteDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
     hideDropHint();
+    lastDropTimestamp = Date.now();
 
-    const saveDrop = noteId => {
-      if (!noteId || noteId === 'null' || noteId === 'undefined') return;
-      saveDroppedNote(noteId, { left: event.clientX, top: event.clientY });
-    };
+    const noteId = getDraggedNoteId(event.dataTransfer);
+    const dropPosition = { left: event.clientX, top: event.clientY };
 
-    if (transferredNoteId) {
-      saveDrop(transferredNoteId);
-      return;
+    if (noteId) {
+      saveDroppedNote(noteId, dropPosition);
+      isExtensionDragging = false;
+      activeDragId = null;
+      lastDragPosition = null;
+    } else {
+      chrome.storage.local.get(['activeDragNoteId'], data => {
+        if (data && data.activeDragNoteId) {
+          saveDroppedNote(data.activeDragNoteId, dropPosition);
+          isExtensionDragging = false;
+          activeDragId = null;
+          lastDragPosition = null;
+        }
+      });
     }
-    chrome.storage.local.get(['activeDragNoteId'], data => {
-      saveDrop(data.activeDragNoteId);
-    });
   }, true);
 
   // Safety watchdogs to guarantee the drop-hint box never gets stuck on screen
-  const clearIfNoButtons = event => {
-    if (event.buttons === 0 && dropHint.classList.contains('visible')) {
-      hideDropHint();
-    }
-  };
-  window.addEventListener('pointermove', clearIfNoButtons, true);
-  window.addEventListener('mousemove', clearIfNoButtons, true);
-
-  const clearOnInteraction = () => {
-    if (dropHint.classList.contains('visible')) {
-      hideDropHint();
-    }
-  };
-  window.addEventListener('pointerdown', clearOnInteraction, true);
-  window.addEventListener('mousedown', clearOnInteraction, true);
-  window.addEventListener('pointerup', clearOnInteraction, true);
-  window.addEventListener('mouseup', clearOnInteraction, true);
-  window.addEventListener('click', clearOnInteraction, true);
-  window.addEventListener('dragend', hideDropHint, true);
-  window.addEventListener('blur', hideDropHint, true);
-  document.addEventListener('mouseleave', hideDropHint, true);
-  window.addEventListener('keydown', event => {
+  window.addEventListener('click', () => {
     if (dropHint.classList.contains('visible')) {
       hideDropHint();
     }
   }, true);
-  document.addEventListener('visibilitychange', () => {
-    if (document.hidden) hideDropHint();
-  });
+
+  window.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && dropHint.classList.contains('visible')) {
+      hideDropHint();
+    }
+  }, true);
+
+  window.addEventListener('dragend', hideDropHint, true);
 
   chrome.runtime.onMessage.addListener(message => {
-    if (message.type === 'dragEnded' || message.type === 'cancelDraggedNote') {
-      hideDropHint();
+    if (message.type === 'stickyDragStart') {
+      isExtensionDragging = true;
+      activeDragId = String(message.noteId || '');
       return;
     }
     if (message.type === 'commitDraggedNote') {
       hideDropHint();
-      if (lastDragPosition) {
-        saveDroppedNote(message.noteId, lastDragPosition);
-        lastDragPosition = null;
+      isExtensionDragging = false;
+      // Only commit if native drop didn't already process this within the last 800ms
+      if (Date.now() - lastDropTimestamp > 800) {
+        const targetId = message.noteId || activeDragId;
+        if (targetId && lastDragPosition) {
+          saveDroppedNote(targetId, lastDragPosition);
+          lastDragPosition = null;
+        }
       }
+      activeDragId = null;
+      return;
+    }
+    if (message.type === 'dragEnded' || message.type === 'cancelDraggedNote') {
+      hideDropHint();
+      isExtensionDragging = false;
+      activeDragId = null;
     }
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName === 'local' && changes.activeDragNoteId) {
-      isExtensionDragging = Boolean(changes.activeDragNoteId.newValue);
-      if (!isExtensionDragging) {
+      if (changes.activeDragNoteId.newValue) {
+        activeDragId = String(changes.activeDragNoteId.newValue);
+        isExtensionDragging = true;
+      } else {
+        activeDragId = null;
+        isExtensionDragging = false;
         hideDropHint();
       }
     }
