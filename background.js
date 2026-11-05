@@ -254,8 +254,11 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
       ? `<a href="${escapeHtml(targetUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(site)}</a>`
       : escapeHtml(site);
 
+    const now = Date.now();
     const newNote = {
-      id: Date.now(),
+      id: now,
+      createdAt: now,
+      updatedAt: now,
       text: `<blockquote>${escapeHtml(info.selectionText.trim())}</blockquote><p></p><p>Source: ${sourceLink}</p>`,
       color: notes.length % 2 === 0 ? 'color-yellow' : 'color-purple',
       url: site,

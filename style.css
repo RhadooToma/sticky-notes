@@ -282,14 +282,34 @@ body.sidepanel-mode {
 
 .note-text-preview p, .note-text-preview div { margin: 0; }
 
-.note-url {
-  display: block;
-  font-size: 11px;
-  color: #80868b;
-  text-align: right;
+.note-footer-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
   margin-top: 10px;
+  min-height: 16px;
+}
+
+.note-date {
+  font-size: 10.5px;
+  color: #787e7a;
+  white-space: nowrap;
+  user-select: none;
+}
+
+body.dark-mode .note-date {
+  color: var(--text-muted);
+}
+
+.note-url {
+  display: inline-block;
+  font-size: 11px;
+  color: #787e7a;
+  text-align: right;
   text-decoration: none;
   cursor: pointer;
+  margin-left: auto;
   transition: color 0.15s ease, text-decoration 0.15s ease;
 }
 

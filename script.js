@@ -114,6 +114,7 @@ document.querySelectorAll('.color-swatch').forEach(swatch => {
     const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
     if (noteIndex !== -1) {
       allNotes[noteIndex].color = currentNoteColor;
+      allNotes[noteIndex].updatedAt = Date.now();
       saveToStorage();
     }
   });
@@ -123,6 +124,29 @@ if (copyNoteBtn) {
   copyNoteBtn.addEventListener('click', () => {
     copyTextToClipboard(noteArea.innerText, copyNoteBtn);
   });
+}
+
+function formatNoteDate(timestamp) {
+  if (!timestamp) return '';
+  const date = new Date(Number(timestamp));
+  if (isNaN(date.getTime())) return '';
+
+  const now = new Date();
+  const isToday = date.toDateString() === now.toDateString();
+
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  const isYesterday = date.toDateString() === yesterday.toDateString();
+
+  const timeStr = date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+
+  if (isToday) {
+    return `Today, ${timeStr}`;
+  }
+  if (isYesterday) {
+    return `Yesterday, ${timeStr}`;
+  }
+  return date.toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) + `, ${timeStr}`;
 }
 
 function updateWordCharCount() {
@@ -630,6 +654,21 @@ function renderNotesList(filterText = '') {
       actionGroup.append(restoreButton, permDeleteButton);
       card.appendChild(actionGroup);
     } else {
+      const footerRow = document.createElement('div');
+      footerRow.className = 'note-footer-row';
+
+      const dateSpan = document.createElement('span');
+      dateSpan.className = 'note-date';
+      const noteTimestamp = note.updatedAt || note.id;
+      dateSpan.textContent = formatNoteDate(noteTimestamp);
+      if (noteTimestamp) {
+        const fullDate = new Date(Number(noteTimestamp));
+        if (!isNaN(fullDate.getTime())) {
+          dateSpan.title = `Last updated: ${fullDate.toLocaleString()}`;
+        }
+      }
+      footerRow.appendChild(dateSpan);
+
       if (note.url) {
         const urlLink = document.createElement('a');
         urlLink.className = 'note-url';
@@ -642,8 +681,9 @@ function renderNotesList(filterText = '') {
           event.stopPropagation();
           chrome.tabs.create({ url: targetUrl });
         });
-        card.appendChild(urlLink);
+        footerRow.appendChild(urlLink);
       }
+      card.appendChild(footerRow);
       card.addEventListener('click', () => openEditor(note.id));
     }
     notesList.appendChild(card);
@@ -756,6 +796,7 @@ function flushCurrentNoteSave() {
     allNotes[noteIndex].tags = getTagsFromInput();
     allNotes[noteIndex].favorite = isFavorite;
     allNotes[noteIndex].category = noteCategoryInput.value.trim();
+    allNotes[noteIndex].updatedAt = Date.now();
     saveToStorage();
     isNewNote = false;
   }
@@ -790,8 +831,11 @@ function createNewNote() {
 
     const nextColor = validColors[allNotes.length % validColors.length];
 
+    const now = Date.now();
     const newNote = {
-      id: Date.now(),
+      id: now,
+      createdAt: now,
+      updatedAt: now,
       text: '',
       color: nextColor,
       url: domainName,
@@ -819,6 +863,7 @@ noteArea.addEventListener('input', () => {
     const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
     if (noteIndex !== -1) {
       allNotes[noteIndex].text = noteArea.innerHTML;
+      allNotes[noteIndex].updatedAt = Date.now();
       saveToStorage();
       isNewNote = false;
     }
@@ -858,6 +903,7 @@ function saveNoteMetadata() {
       allNotes[noteIndex].tags = getTagsFromInput();
       allNotes[noteIndex].favorite = isFavorite;
       allNotes[noteIndex].category = noteCategoryInput.value.trim();
+      allNotes[noteIndex].updatedAt = Date.now();
       saveToStorage();
       isNewNote = false;
       renderNotesList(searchInput.value);
