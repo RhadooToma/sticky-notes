@@ -33,61 +33,98 @@ function noteMatchesSite(site, noteUrl) {
   return Boolean(site && noteSite && (site === noteSite || site.endsWith('.' + noteSite)));
 }
 
+function clearAllBadges() {
+  if (chrome.action && typeof chrome.action.setBadgeText === 'function') {
+    chrome.action.setBadgeText({ text: '' }).catch(() => {});
+    chrome.tabs.query({}, tabs => {
+      if (Array.isArray(tabs)) {
+        for (const tab of tabs) {
+          if (tab.id) {
+            chrome.action.setBadgeText({ text: '', tabId: tab.id }).catch(() => {});
+          }
+        }
+      }
+    });
+  }
+}
+
 function updateBadgeForTab(tabId, url) {
   if (!tabId || !chrome.action || typeof chrome.action.setBadgeText !== 'function') return;
-  if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://')) {
-    chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
-    return;
-  }
+  chrome.storage.sync.get(['showBadgeCounter'], cfg => {
+    if (!cfg.showBadgeCounter) {
+      chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
+      return;
+    }
 
-  const currentSite = getDomain(url);
-  if (!currentSite) {
-    chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
-    return;
-  }
+    if (!url || url.startsWith('chrome://') || url.startsWith('chrome-extension://') || url.startsWith('edge://')) {
+      chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
+      return;
+    }
 
-  chrome.storage.sync.get(['notesArray'], data => {
-    const notes = Array.isArray(data.notesArray) ? data.notesArray : [];
-    const siteNotes = notes.filter(n => noteMatchesSite(currentSite, n.url));
-    const count = siteNotes.length;
+    const currentSite = getDomain(url);
+    if (!currentSite) {
+      chrome.action.setBadgeText({ text: '', tabId }).catch(() => {});
+      return;
+    }
 
-    chrome.action.setBadgeText({
-      text: count > 0 ? String(count) : '',
-      tabId: tabId
-    }).catch(() => {});
+    chrome.storage.sync.get(['notesArray'], data => {
+      const notes = Array.isArray(data.notesArray) ? data.notesArray : [];
+      const siteNotes = notes.filter(n => noteMatchesSite(currentSite, n.url));
+      const count = siteNotes.length;
 
-    if (count > 0 && typeof chrome.action.setBadgeBackgroundColor === 'function') {
-      chrome.action.setBadgeBackgroundColor({
-        color: '#3f7568',
+      chrome.action.setBadgeText({
+        text: count > 0 ? String(count) : '',
         tabId: tabId
       }).catch(() => {});
-    }
+
+      if (count > 0 && typeof chrome.action.setBadgeBackgroundColor === 'function') {
+        chrome.action.setBadgeBackgroundColor({
+          color: '#3f7568',
+          tabId: tabId
+        }).catch(() => {});
+      }
+    });
   });
 }
 
 function updateAllActiveBadges() {
-  chrome.tabs.query({}, tabs => {
-    for (const tab of tabs) {
-      if (tab.id && tab.url) {
-        updateBadgeForTab(tab.id, tab.url);
-      }
+  chrome.storage.sync.get(['showBadgeCounter'], cfg => {
+    if (!cfg.showBadgeCounter) {
+      clearAllBadges();
+      return;
     }
+    chrome.tabs.query({}, tabs => {
+      for (const tab of tabs) {
+        if (tab.id && tab.url) {
+          updateBadgeForTab(tab.id, tab.url);
+        }
+      }
+    });
   });
 }
 
-// Initialize display mode & badges on worker startup
-chrome.storage.sync.get(['displayMode'], data => {
+// Initialize display mode & clear default badges on worker startup
+chrome.storage.sync.get(['displayMode', 'showBadgeCounter'], data => {
   updateDisplayMode(data.displayMode || 'popup');
+  if (data.showBadgeCounter) {
+    updateAllActiveBadges();
+  } else {
+    clearAllBadges();
+  }
 });
-updateAllActiveBadges();
 
 chrome.runtime.onInstalled.addListener(details => {
   createContextMenu();
   if (details.reason === 'install') {
     chrome.storage.sync.remove(['floatingNotes', 'pinnedNoteId', 'pinnedNotePosition']);
   }
-  chrome.storage.sync.get(['displayMode'], data => {
+  chrome.storage.sync.get(['displayMode', 'showBadgeCounter'], data => {
     updateDisplayMode(data.displayMode || 'popup');
+    if (data.showBadgeCounter) {
+      updateAllActiveBadges();
+    } else {
+      clearAllBadges();
+    }
   });
 
   // Inject content script into active tabs on install/update
@@ -101,15 +138,18 @@ chrome.runtime.onInstalled.addListener(details => {
       }
     }
   });
-  updateAllActiveBadges();
 });
 
 chrome.runtime.onStartup.addListener(() => {
   createContextMenu();
-  chrome.storage.sync.get(['displayMode'], data => {
+  chrome.storage.sync.get(['displayMode', 'showBadgeCounter'], data => {
     updateDisplayMode(data.displayMode || 'popup');
+    if (data.showBadgeCounter) {
+      updateAllActiveBadges();
+    } else {
+      clearAllBadges();
+    }
   });
-  updateAllActiveBadges();
 });
 
 // Update badges on tab events
@@ -131,6 +171,13 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName !== 'sync') return;
   if (changes.displayMode) {
     updateDisplayMode(changes.displayMode.newValue || 'popup');
+  }
+  if (changes.showBadgeCounter) {
+    if (!changes.showBadgeCounter.newValue) {
+      clearAllBadges();
+    } else {
+      updateAllActiveBadges();
+    }
   }
   if (changes.notesArray) {
     updateAllActiveBadges();

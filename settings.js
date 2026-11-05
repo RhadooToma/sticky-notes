@@ -38,7 +38,7 @@ function downloadJson(data) {
   URL.revokeObjectURL(url);
 }
 
-chrome.storage.sync.get([notesKey, 'displayMode', 'startupTab', 'settingsTheme', 'settingsAccent'], data => {
+chrome.storage.sync.get([notesKey, 'displayMode', 'startupTab', 'settingsTheme', 'settingsAccent', 'showBadgeCounter'], data => {
   const notes = Array.isArray(data[notesKey]) ? data[notesKey] : [];
   renderStats(notes);
   if (data.displayMode) {
@@ -46,6 +46,8 @@ chrome.storage.sync.get([notesKey, 'displayMode', 'startupTab', 'settingsTheme',
     if (selectedMode) selectedMode.checked = true;
   }
   if (data.startupTab) document.getElementById('startupTab').value = data.startupTab;
+  const badgeToggle = document.getElementById('showBadgeCounterToggle');
+  if (badgeToggle) badgeToggle.checked = Boolean(data.showBadgeCounter);
   applyTheme(data.settingsTheme || 'light');
   applyAccent(data.settingsAccent || 'teal');
   document.querySelectorAll('.theme-option').forEach(button => button.classList.toggle('active', button.dataset.theme === (data.settingsTheme || 'light')));
@@ -54,6 +56,11 @@ chrome.storage.sync.get([notesKey, 'displayMode', 'startupTab', 'settingsTheme',
 
 document.querySelectorAll('input[name="displayMode"]').forEach(input => input.addEventListener('change', event => saveSetting('displayMode', event.target.value)));
 document.getElementById('startupTab').addEventListener('change', event => saveSetting('startupTab', event.target.value));
+
+const badgeCounterToggle = document.getElementById('showBadgeCounterToggle');
+if (badgeCounterToggle) {
+  badgeCounterToggle.addEventListener('change', event => saveSetting('showBadgeCounter', event.target.checked));
+}
 
 document.getElementById('shortcutBtn').addEventListener('click', () => {
   chrome.tabs.create({ url: 'chrome://extensions/shortcuts' }).catch(() => {

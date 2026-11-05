@@ -288,6 +288,18 @@ body.sidepanel-mode {
   color: #80868b;
   text-align: right;
   margin-top: 10px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: color 0.15s ease, text-decoration 0.15s ease;
+}
+
+.note-url:hover {
+  color: #3f7568;
+  text-decoration: underline;
+}
+
+body.dark-mode .note-url:hover {
+  color: var(--accent);
 }
 
 .favorite-mark {
@@ -923,14 +935,15 @@ body.dark-mode .dropdown-row .sort-select {
   background: transparent;
   border: 0;
   cursor: pointer;
-  padding: 2px 4px;
-  font-size: 13px;
-  line-height: 1;
-  color: var(--text-muted);
+  padding: 3px;
+  color: #68706a;
   border-radius: 4px;
   opacity: 0.65;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition: opacity 0.15s ease, transform 0.15s ease, color 0.15s ease;
   flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .note-card:hover .note-copy-btn {
@@ -940,6 +953,10 @@ body.dark-mode .dropdown-row .sort-select {
 .note-copy-btn:hover {
   transform: scale(1.15);
   color: var(--accent);
+}
+
+.note-copy-btn svg, #copyNoteBtn svg {
+  display: block;
 }
 
 #noteArea a, .note-text-preview a {

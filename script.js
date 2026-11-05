@@ -68,6 +68,11 @@ let showRecentlyDeletedOnly = false;
 const validColors = ['color-yellow', 'color-green', 'color-blue', 'color-purple', 'color-pink'];
 let currentNoteColor = 'color-yellow';
 
+const iconCopy = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+const iconCopyLarge = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+const iconCheck = '<svg viewBox="0 0 24 24" width="14" height="14" stroke="#2e7d32" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+const iconCheckLarge = '<svg viewBox="0 0 24 24" width="16" height="16" stroke="#2e7d32" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+
 function copyTextToClipboard(content, btnElement) {
   const temp = document.createElement('div');
   temp.innerHTML = content || '';
@@ -77,13 +82,19 @@ function copyTextToClipboard(content, btnElement) {
   navigator.clipboard.writeText(textToCopy).then(() => {
     if (btnElement) {
       const original = btnElement.innerHTML;
-      btnElement.innerHTML = '✓';
-      setTimeout(() => { btnElement.innerHTML = original; }, 1500);
+      const isLarge = btnElement.id === 'copyNoteBtn';
+      btnElement.innerHTML = isLarge ? iconCheckLarge : iconCheck;
+      btnElement.title = 'Copied!';
+      setTimeout(() => {
+        btnElement.innerHTML = original;
+        btnElement.title = 'Copy note text';
+      }, 1500);
     }
-    statusText.textContent = 'Copied to clipboard ✓';
+    statusText.textContent = 'Copied to clipboard!';
     setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2000);
   }).catch(() => {
     statusText.textContent = 'Copy failed';
+    setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2000);
   });
 }
 
@@ -445,7 +456,14 @@ function renderNotesList(filterText = '') {
       textDiv.innerHTML = '<span style="color:#80868b; font-style:italic;">Empty note...</span>';
     }
     textDiv.querySelectorAll('a').forEach(a => {
-      a.addEventListener('click', e => e.stopPropagation());
+      a.title = 'Open link in new tab';
+      a.addEventListener('click', e => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (a.href) {
+          chrome.tabs.create({ url: a.href });
+        }
+      });
     });
     headerRow.appendChild(textDiv);
 
@@ -454,7 +472,7 @@ function renderNotesList(filterText = '') {
       copyBtn.className = 'note-copy-btn';
       copyBtn.type = 'button';
       copyBtn.title = 'Copy note text';
-      copyBtn.textContent = '📋';
+      copyBtn.innerHTML = iconCopy;
       copyBtn.addEventListener('click', event => {
         event.stopPropagation();
         copyTextToClipboard(note.text, copyBtn);
@@ -522,10 +540,18 @@ function renderNotesList(filterText = '') {
       card.appendChild(actionGroup);
     } else {
       if (note.url) {
-        const urlSpan = document.createElement('span');
-        urlSpan.className = 'note-url';
-        urlSpan.textContent = note.url;
-        card.appendChild(urlSpan);
+        const urlLink = document.createElement('a');
+        urlLink.className = 'note-url';
+        urlLink.textContent = note.url;
+        urlLink.title = 'Open link in new tab';
+        const targetUrl = note.sourceUrl || (note.url.startsWith('http') ? note.url : `https://${note.url}`);
+        urlLink.href = targetUrl;
+        urlLink.addEventListener('click', event => {
+          event.preventDefault();
+          event.stopPropagation();
+          chrome.tabs.create({ url: targetUrl });
+        });
+        card.appendChild(urlLink);
       }
       card.addEventListener('click', () => openEditor(note.id));
     }
@@ -590,7 +616,20 @@ function openEditor(id, newlyCreated = false) {
   isNewNote = newlyCreated;
   const noteObj = allNotes.find(n => String(n.id) === String(id));
   noteArea.innerHTML = noteObj ? noteObj.text : '';
-  noteUrlDisplay.textContent = noteObj ? (noteObj.url || 'Unassigned site') : 'Unassigned site';
+  if (noteObj && noteObj.url && noteObj.url !== 'Unassigned site') {
+    const targetUrl = noteObj.sourceUrl || (noteObj.url.startsWith('http') ? noteObj.url : `https://${noteObj.url}`);
+    noteUrlDisplay.textContent = noteObj.url;
+    noteUrlDisplay.style.cursor = 'pointer';
+    noteUrlDisplay.style.textDecoration = 'underline';
+    noteUrlDisplay.title = 'Open site in new tab';
+    noteUrlDisplay.onclick = () => chrome.tabs.create({ url: targetUrl });
+  } else {
+    noteUrlDisplay.textContent = 'Unassigned site';
+    noteUrlDisplay.style.cursor = 'default';
+    noteUrlDisplay.style.textDecoration = 'none';
+    noteUrlDisplay.title = '';
+    noteUrlDisplay.onclick = null;
+  }
   editingTags = noteObj ? [...getNoteTags(noteObj)] : [];
   noteTagsInput.value = '';
   renderTagChips();
@@ -633,6 +672,14 @@ function flushCurrentNoteSave() {
 noteArea.addEventListener('blur', flushCurrentNoteSave);
 window.addEventListener('beforeunload', flushCurrentNoteSave);
 window.addEventListener('pagehide', flushCurrentNoteSave);
+
+noteArea.addEventListener('click', event => {
+  const link = event.target.closest('a');
+  if (link && link.href) {
+    event.preventDefault();
+    chrome.tabs.create({ url: link.href });
+  }
+});
 
 backBtn.addEventListener('click', event => {
   event.preventDefault();
