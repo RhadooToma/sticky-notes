@@ -578,9 +578,23 @@ body.dark-mode #noteArea[contenteditable="false"] {
 }
 
 .footer {
-  padding: 8px 16px;
-  text-align: right;
+  padding: 6px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
   border-top: 1px solid var(--border);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.word-char-count {
+  font-size: 11px;
+  color: var(--text-muted);
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  user-select: none;
 }
 
 .modal-backdrop {

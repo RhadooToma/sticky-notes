@@ -41,6 +41,9 @@ const undoDeleteBtn = document.getElementById('undoDeleteBtn');
 const btnBold = document.getElementById('btnBold');
 const btnItalic = document.getElementById('btnItalic');
 const btnUnderline = document.getElementById('btnUnderline');
+const btnTimestamp = document.getElementById('btnTimestamp');
+const exportSingleNoteBtn = document.getElementById('exportSingleNoteBtn');
+const wordCharCount = document.getElementById('wordCharCount');
 const formatToolbar = document.getElementById('formatToolbar');
 const btnOrderedList = document.getElementById('btnOrderedList');
 const btnUnorderedList = document.getElementById('btnUnorderedList');
@@ -120,6 +123,94 @@ if (copyNoteBtn) {
   copyNoteBtn.addEventListener('click', () => {
     copyTextToClipboard(noteArea.innerText, copyNoteBtn);
   });
+}
+
+function updateWordCharCount() {
+  if (!wordCharCount) return;
+  const text = (noteArea.innerText || noteArea.textContent || '').trim();
+  const chars = text.length;
+  const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
+  wordCharCount.textContent = `${words} ${words === 1 ? 'word' : 'words'} · ${chars} ${chars === 1 ? 'char' : 'chars'}`;
+}
+
+function insertTimestamp() {
+  if (isLocked) return;
+  noteArea.focus();
+  const now = new Date();
+  const formatted = now.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const textToInsert = `[${formatted}] `;
+  document.execCommand('insertText', false, textToInsert);
+  noteArea.dispatchEvent(new Event('input', { bubbles: true }));
+}
+
+if (btnTimestamp) {
+  btnTimestamp.addEventListener('click', insertTimestamp);
+}
+
+function exportCurrentNote() {
+  if (currentNoteId === null) return;
+  const note = allNotes.find(n => String(n.id) === String(currentNoteId));
+  if (!note) return;
+
+  const temp = document.createElement('div');
+  temp.innerHTML = note.text || '';
+
+  temp.querySelectorAll('.checklist-line').forEach(line => {
+    const isChecked = Boolean(line.querySelector('input:checked'));
+    const text = (line.textContent || '').trim();
+    line.textContent = `[${isChecked ? 'x' : ' '}] ${text}\n`;
+  });
+
+  const bodyText = (temp.innerText || temp.textContent || '').trim();
+  const now = new Date();
+  const dateStr = now.toISOString().slice(0, 10);
+
+  let header = `==============================\n`;
+  header += `Sticky Note (${dateStr})\n`;
+  if (note.url && note.url !== 'Unassigned site') {
+    header += `Site: ${note.url}\n`;
+  }
+  if (note.sourceUrl) {
+    header += `Source: ${note.sourceUrl}\n`;
+  }
+  const tags = getNoteTags(note);
+  if (tags.length > 0) {
+    header += `Tags: #${tags.join(' #')}\n`;
+  }
+  const cat = getNoteCategory(note);
+  if (cat) {
+    header += `Category: ${cat}\n`;
+  }
+  header += `==============================\n\n`;
+
+  const fullContent = header + bodyText + '\n';
+
+  let slug = bodyText.slice(0, 25).replace(/[^a-zA-Z0-9_\u00C0-\u017F]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
+  if (!slug) slug = 'note';
+  const fileName = `StickyNote_${dateStr}_${slug}.txt`;
+
+  const blob = new Blob([fullContent], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  statusText.textContent = `Downloaded ${fileName}`;
+  setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2500);
+}
+
+if (exportSingleNoteBtn) {
+  exportSingleNoteBtn.addEventListener('click', exportCurrentNote);
 }
 
 function dismissOnboarding() {
@@ -645,6 +736,7 @@ function openEditor(id, newlyCreated = false) {
   
   lockBtn.innerHTML = iconUnlocked;
   statusText.textContent = '';
+  updateWordCharCount();
   
   menuView.classList.add('hidden');
   editView.classList.remove('hidden');
@@ -719,6 +811,7 @@ noteArea.addEventListener('input', () => {
   if (noteArea.innerHTML === '<br>' || noteArea.innerHTML === '<p><br></p>') {
     noteArea.innerHTML = '';
   }
+  updateWordCharCount();
   clearTimeout(saveTimeout);
   statusText.textContent = 'Saving...';
   
@@ -732,6 +825,13 @@ noteArea.addEventListener('input', () => {
     statusText.textContent = 'Saved ✓';
     setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2000);
   }, 500);
+});
+
+noteArea.addEventListener('keydown', event => {
+  if (event.altKey && event.shiftKey && (event.key === 'D' || event.key === 'd')) {
+    event.preventDefault();
+    insertTimestamp();
+  }
 });
 
 noteArea.addEventListener('change', event => {
