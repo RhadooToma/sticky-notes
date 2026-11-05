@@ -59,6 +59,24 @@
   let saveTimer = null;
   let lastDragPosition = null;
   let dropHintTimer = null;
+  let isExtensionDragging = false;
+  chrome.storage.local.get(['activeDragNoteId'], data => {
+    isExtensionDragging = Boolean(data && data.activeDragNoteId);
+  });
+
+  function showDropHint() {
+    dropHint.classList.add('visible');
+    clearTimeout(dropHintTimer);
+    dropHintTimer = setTimeout(hideDropHint, 1200);
+  }
+
+  function hideDropHint() {
+    clearTimeout(dropHintTimer);
+    dropHintTimer = null;
+    dropHint.classList.remove('visible');
+    lastDragPosition = null;
+    chrome.storage.local.remove('lastDragPosition');
+  }
   const iconLocked = '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>';
   const iconUnlocked = '<svg viewBox="0 0 24 24" width="15" height="15" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>';
 
@@ -299,38 +317,31 @@
   }
 
   function isStickyNoteDrag(dataTransfer) {
-    return Boolean(dataTransfer && Array.from(dataTransfer.types || [])
-      .some(type => type === 'application/x-sticky-note-id' || type === 'text/plain'));
+    if (!dataTransfer) return isExtensionDragging;
+    const types = Array.from(dataTransfer.types || []);
+    if (types.includes('application/x-sticky-note-id')) return true;
+    if (isExtensionDragging && types.length > 0) return true;
+    return false;
   }
 
   window.addEventListener('dragenter', event => {
     if (!isStickyNoteDrag(event.dataTransfer)) return;
     event.preventDefault();
-    dropHint.classList.add('visible');
-    clearTimeout(dropHintTimer);
+    showDropHint();
   }, true);
 
   window.addEventListener('dragover', event => {
     if (!isStickyNoteDrag(event.dataTransfer)) return;
     event.preventDefault();
-    event.dataTransfer.dropEffect = 'copy';
+    try { event.dataTransfer.dropEffect = 'copy'; } catch (_) {}
     lastDragPosition = { left: event.clientX, top: event.clientY };
     chrome.storage.local.set({ lastDragPosition });
-    dropHint.classList.add('visible');
-    clearTimeout(dropHintTimer);
-    dropHintTimer = setTimeout(() => {
-      dropHint.classList.remove('visible');
-      lastDragPosition = null;
-      chrome.storage.local.remove('lastDragPosition');
-    }, 1200);
+    showDropHint();
   }, true);
 
   window.addEventListener('dragleave', event => {
-    if (event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
-      lastDragPosition = null;
-      chrome.storage.local.remove('lastDragPosition');
-      clearTimeout(dropHintTimer);
-      dropHint.classList.remove('visible');
+    if (!event.relatedTarget || event.clientX <= 0 || event.clientY <= 0 || event.clientX >= window.innerWidth || event.clientY >= window.innerHeight) {
+      hideDropHint();
     }
   }, true);
 
@@ -340,8 +351,7 @@
     if (!hasStickyPayload && !isStickyNoteDrag(event.dataTransfer)) return;
     event.preventDefault();
     event.stopPropagation();
-    clearTimeout(dropHintTimer);
-    dropHint.classList.remove('visible');
+    hideDropHint();
 
     const saveDrop = noteId => {
       if (!noteId || noteId === 'null' || noteId === 'undefined') return;
@@ -350,8 +360,6 @@
 
     if (transferredNoteId) {
       saveDrop(transferredNoteId);
-      lastDragPosition = null;
-      chrome.storage.local.remove('lastDragPosition');
       return;
     }
     chrome.storage.local.get(['activeDragNoteId'], data => {
@@ -359,21 +367,58 @@
     });
   }, true);
 
+  // Safety watchdogs to guarantee the drop-hint box never gets stuck on screen
+  const clearIfNoButtons = event => {
+    if (event.buttons === 0 && dropHint.classList.contains('visible')) {
+      hideDropHint();
+    }
+  };
+  window.addEventListener('pointermove', clearIfNoButtons, true);
+  window.addEventListener('mousemove', clearIfNoButtons, true);
+
+  const clearOnInteraction = () => {
+    if (dropHint.classList.contains('visible')) {
+      hideDropHint();
+    }
+  };
+  window.addEventListener('pointerdown', clearOnInteraction, true);
+  window.addEventListener('mousedown', clearOnInteraction, true);
+  window.addEventListener('pointerup', clearOnInteraction, true);
+  window.addEventListener('mouseup', clearOnInteraction, true);
+  window.addEventListener('click', clearOnInteraction, true);
+  window.addEventListener('dragend', hideDropHint, true);
+  window.addEventListener('blur', hideDropHint, true);
+  document.addEventListener('mouseleave', hideDropHint, true);
+  window.addEventListener('keydown', event => {
+    if (dropHint.classList.contains('visible')) {
+      hideDropHint();
+    }
+  }, true);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) hideDropHint();
+  });
+
   chrome.runtime.onMessage.addListener(message => {
-    if (message.type !== 'commitDraggedNote') return;
-    if (lastDragPosition) {
-      saveDroppedNote(message.noteId, lastDragPosition);
-      dropHint.classList.remove('visible');
+    if (message.type === 'dragEnded' || message.type === 'cancelDraggedNote') {
+      hideDropHint();
       return;
     }
-    chrome.storage.local.get(['lastDragPosition'], data => {
-      const pos = data.lastDragPosition || { left: 40, top: 40 };
-      saveDroppedNote(message.noteId, pos);
-      dropHint.classList.remove('visible');
-    });
+    if (message.type === 'commitDraggedNote') {
+      hideDropHint();
+      if (lastDragPosition) {
+        saveDroppedNote(message.noteId, lastDragPosition);
+        lastDragPosition = null;
+      }
+    }
   });
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName === 'local' && changes.activeDragNoteId) {
+      isExtensionDragging = Boolean(changes.activeDragNoteId.newValue);
+      if (!isExtensionDragging) {
+        hideDropHint();
+      }
+    }
     if (areaName !== 'sync') return;
     if (editingId === null) {
       chrome.storage.sync.get(['notesArray', 'floatingNotes'], render);

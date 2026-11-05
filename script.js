@@ -399,23 +399,25 @@ function renderNotesList(filterText = '') {
       card.classList.add('dragging');
     });
 
-    card.addEventListener('dragend', () => {
+    card.addEventListener('dragend', event => {
       card.classList.remove('dragging');
       chrome.storage.local.remove('activeDragNoteId');
-      const sendCommit = tab => {
+
+      const isSuccess = Boolean(event.dataTransfer && event.dataTransfer.dropEffect && event.dataTransfer.dropEffect !== 'none');
+      const sendNotice = tab => {
         if (tab && tab.id !== undefined) {
           chrome.tabs.sendMessage(tab.id, {
-            type: 'commitDraggedNote',
+            type: isSuccess ? 'commitDraggedNote' : 'dragEnded',
             noteId: String(note.id)
           }).catch(() => {});
         }
       };
       chrome.tabs.query({ active: true, lastFocusedWindow: true }, tabs => {
         if (tabs && tabs[0]) {
-          sendCommit(tabs[0]);
+          sendNotice(tabs[0]);
         } else {
           chrome.tabs.query({ active: true, currentWindow: true }, fallbackTabs => {
-            if (fallbackTabs && fallbackTabs[0]) sendCommit(fallbackTabs[0]);
+            if (fallbackTabs && fallbackTabs[0]) sendNotice(fallbackTabs[0]);
           });
         }
       });
