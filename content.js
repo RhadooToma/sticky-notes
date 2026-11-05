@@ -14,20 +14,37 @@
     .layer { position: absolute; inset: 0; pointer-events: none; }
     .drop-hint { position: absolute; inset: 12px; display: none; align-items: flex-start; justify-content: center; padding-top: 48px; border: 2px dashed rgba(63, 117, 104, .8); border-radius: 10px; background: rgba(131, 199, 176, .08); color: #3f7568; font: 600 14px 'Trebuchet MS', 'Segoe UI', sans-serif; pointer-events: none; }
     .drop-hint.visible { display: flex; }
-    .card { position: absolute; width: 280px; box-sizing: border-box; padding: 16px 16px 22px; border: 1px solid #e2d76d; border-radius: 1px; background: #fff994; color: #2d302d; box-shadow: 0 8px 20px rgba(31, 38, 35, .2); font: 14px/1.45 'Trebuchet MS', 'Segoe UI', sans-serif; overflow: hidden; pointer-events: auto; }
+    .card { position: absolute; width: 280px; box-sizing: border-box; padding: 16px 16px 22px; border: 1px solid #e2d76d; border-radius: 1px; background: #fff994; color: #2d302d; box-shadow: 0 8px 20px rgba(31, 38, 35, .2); font: 14px/1.45 'Trebuchet MS', 'Segoe UI', sans-serif; overflow: hidden; pointer-events: auto; opacity: 0.96; transition: opacity 0.2s ease, box-shadow 0.2s ease, width 0.2s ease, padding 0.2s ease; }
+    .card:hover, .card:focus-within { opacity: 1; }
     .card::before { content: ''; position: absolute; left: 0; top: 0; width: 30px; height: 30px; background: #d3c44f; clip-path: polygon(0 0, 100% 0, 0 100%); pointer-events: none; }
     .card::after { content: ''; position: absolute; left: 0; top: 0; width: 27px; height: 27px; background: #fff994; clip-path: polygon(0 0, 100% 0, 0 100%); box-shadow: 2px 2px 3px rgba(111, 101, 29, .28); pointer-events: none; }
     .card.color-purple { background: #f1e2d5; border-color: #d6b8a2; }
     .card.color-purple::before { background: #c29d82; }
     .card.color-purple::after { background: #f1e2d5; box-shadow: 2px 2px 3px rgba(90, 65, 45, .28); }
+    .card.color-green { background: #d8f3dc; border-color: #a3d9b1; color: #1e3a29; }
+    .card.color-green::before { background: #88c899; }
+    .card.color-green::after { background: #d8f3dc; box-shadow: 2px 2px 3px rgba(40, 90, 50, .25); }
+    .card.color-blue { background: #d7eaf7; border-color: #a9cfeb; color: #1b354d; }
+    .card.color-blue::before { background: #89b8dd; }
+    .card.color-blue::after { background: #d7eaf7; box-shadow: 2px 2px 3px rgba(35, 70, 100, .25); }
+    .card.color-pink { background: #ffd6e0; border-color: #f7abbd; color: #4a212b; }
+    .card.color-pink::before { background: #e590a4; }
+    .card.color-pink::after { background: #ffd6e0; box-shadow: 2px 2px 3px rgba(110, 40, 60, .25); }
+    .card.minimized { width: 180px; padding: 7px 10px 7px 14px; border-radius: 6px; box-shadow: 0 4px 12px rgba(31, 38, 35, .15); }
+    .card.minimized::before, .card.minimized::after { display: none; }
+    .card.minimized .bar { margin-bottom: 0; padding-left: 0; }
+    .card.minimized .text, .card.minimized .site { display: none !important; }
     .bar { position: relative; z-index: 1; display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; padding-left: 22px; color: #68706a; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; cursor: grab; user-select: none; }
     .bar.dragging { cursor: grabbing; }
     .controls { display: flex; align-items: center; gap: 6px; }
     .control { border: 0; background: transparent; color: #68706a; cursor: pointer; font-size: 16px; line-height: 1; padding: 2px 4px; }
     .control:hover { color: #2d302d; }
     .text { max-height: 220px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; }
+    .text a { color: #3f7568; text-decoration: underline; }
     .text[contenteditable="true"] { border: 1px dashed #b9ad68; border-radius: 5px; padding: 7px; margin: -7px; background: rgba(255, 255, 255, .25); }
     .site { color: #80868b; font-size: 11px; margin-top: 12px; text-align: right; }
+    .site a { color: inherit; text-decoration: none; }
+    .site a:hover { color: #3f7568; text-decoration: underline; }
   `;
   shadow.appendChild(style);
   const layer = document.createElement('div');
@@ -81,8 +98,12 @@
 
   function createCard(note, position) {
     const card = document.createElement('div');
-    const noteColor = note.color === 'color-purple' ? 'color-purple' : 'color-yellow';
+    const validColors = ['color-yellow', 'color-green', 'color-blue', 'color-purple', 'color-pink'];
+    const noteColor = validColors.includes(note.color) ? note.color : 'color-yellow';
     card.className = `card ${noteColor}`;
+    if (position.minimized) {
+      card.classList.add('minimized');
+    }
     card.style.left = `${Math.max(0, position.left)}px`;
     card.style.top = `${Math.max(0, position.top)}px`;
 
@@ -99,13 +120,19 @@
     lockButton.title = 'Unlock note';
     lockButton.innerHTML = iconLocked;
 
+    const minButton = document.createElement('button');
+    minButton.className = 'control';
+    minButton.type = 'button';
+    minButton.title = position.minimized ? 'Expand note' : 'Minimize note';
+    minButton.textContent = position.minimized ? '+' : '–';
+
     const closeButton = document.createElement('button');
     closeButton.className = 'control';
     closeButton.type = 'button';
     closeButton.title = 'Close note';
     closeButton.textContent = '×';
 
-    controls.append(lockButton, closeButton);
+    controls.append(lockButton, minButton, closeButton);
     bar.appendChild(controls);
 
     const text = document.createElement('div');
@@ -114,13 +141,50 @@
 
     const site = document.createElement('div');
     site.className = 'site';
-    site.textContent = note.url || '';
+    if (note.sourceUrl) {
+      const siteLink = document.createElement('a');
+      siteLink.href = note.sourceUrl;
+      siteLink.target = '_blank';
+      siteLink.rel = 'noopener noreferrer';
+      siteLink.textContent = note.url ? `🔗 ${note.url}` : '🔗 Source';
+      siteLink.title = 'Open source link and scroll to text';
+      site.appendChild(siteLink);
+    } else {
+      site.textContent = note.url || '';
+    }
 
     card.append(bar, text, site);
     layer.appendChild(card);
 
     let locked = true;
     let dragState = null;
+
+    function toggleMinimize() {
+      const isMin = card.classList.toggle('minimized');
+      minButton.textContent = isMin ? '+' : '–';
+      minButton.title = isMin ? 'Expand note' : 'Minimize note';
+      position.minimized = isMin;
+      chrome.storage.sync.get(['floatingNotes'], data => {
+        const floatingNotes = Array.isArray(data.floatingNotes) ? data.floatingNotes : [];
+        const item = floatingNotes.find(entry => String(entry.noteId) === String(note.id) && entry.pageKey === pageKey);
+        if (item) {
+          item.minimized = isMin;
+          chrome.storage.sync.set({ floatingNotes });
+        }
+      });
+    }
+
+    minButton.addEventListener('click', event => {
+      event.stopPropagation();
+      toggleMinimize();
+    });
+
+    bar.addEventListener('click', event => {
+      if (event.target.closest('button')) return;
+      if (card.classList.contains('minimized')) {
+        toggleMinimize();
+      }
+    });
 
     function flushTextSave() {
       if (editingId === null) return;
@@ -218,7 +282,11 @@
     const entries = floatingNotes.map(item => ({ item, note: notes.find(note => String(note.id) === String(item.noteId)) }))
       .filter(entry => entry.note && entry.item.pageKey === pageKey && entry.item.visible !== false);
     layer.replaceChildren();
-    entries.forEach(entry => createCard(entry.note, { top: entry.item.top ?? 18, left: entry.item.left ?? 18 }));
+    entries.forEach(entry => createCard(entry.note, {
+      top: entry.item.top ?? 18,
+      left: entry.item.left ?? 18,
+      minimized: Boolean(entry.item.minimized)
+    }));
   }
 
   function getDraggedNoteId(dataTransfer) {

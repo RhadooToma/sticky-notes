@@ -28,6 +28,7 @@ const settingsBtn = document.getElementById('settingsBtn');
 const themeToggleBtn = document.getElementById('themeToggleBtn');
 const lockBtn = document.getElementById('lockBtn');
 const favoriteBtn = document.getElementById('favoriteBtn');
+const copyNoteBtn = document.getElementById('copyNoteBtn');
 const noteTagsInput = document.getElementById('noteTagsInput');
 const tagChips = document.getElementById('tagChips');
 const noteCategoryInput = document.getElementById('noteCategoryInput');
@@ -64,6 +65,51 @@ let isDarkMode = false;
 let currentThemeSetting = 'light';
 let currentSortOrder = 'newest';
 let showRecentlyDeletedOnly = false;
+const validColors = ['color-yellow', 'color-green', 'color-blue', 'color-purple', 'color-pink'];
+let currentNoteColor = 'color-yellow';
+
+function copyTextToClipboard(content, btnElement) {
+  const temp = document.createElement('div');
+  temp.innerHTML = content || '';
+  const textToCopy = (temp.innerText || temp.textContent || '').trim();
+  if (!textToCopy) return;
+
+  navigator.clipboard.writeText(textToCopy).then(() => {
+    if (btnElement) {
+      const original = btnElement.innerHTML;
+      btnElement.innerHTML = '✓';
+      setTimeout(() => { btnElement.innerHTML = original; }, 1500);
+    }
+    statusText.textContent = 'Copied to clipboard ✓';
+    setTimeout(() => { if (!isLocked) statusText.textContent = ''; }, 2000);
+  }).catch(() => {
+    statusText.textContent = 'Copy failed';
+  });
+}
+
+function updateColorSwatches() {
+  document.querySelectorAll('.color-swatch').forEach(swatch => {
+    swatch.classList.toggle('active', swatch.dataset.color === currentNoteColor);
+  });
+}
+
+document.querySelectorAll('.color-swatch').forEach(swatch => {
+  swatch.addEventListener('click', () => {
+    currentNoteColor = swatch.dataset.color;
+    updateColorSwatches();
+    const noteIndex = allNotes.findIndex(n => String(n.id) === String(currentNoteId));
+    if (noteIndex !== -1) {
+      allNotes[noteIndex].color = currentNoteColor;
+      saveToStorage();
+    }
+  });
+});
+
+if (copyNoteBtn) {
+  copyNoteBtn.addEventListener('click', () => {
+    copyTextToClipboard(noteArea.innerText, copyNoteBtn);
+  });
+}
 
 function dismissOnboarding() {
   if (onboardingLegend.classList.contains('hidden')) return;
@@ -338,7 +384,7 @@ function renderNotesList(filterText = '') {
 
   filteredNotes.forEach(note => {
     const card = document.createElement('div');
-    const noteColor = note.color === 'color-purple' ? 'color-purple' : 'color-yellow';
+    const noteColor = validColors.includes(note.color) ? note.color : 'color-yellow';
     card.className = `note-card ${noteColor}`;
     card.draggable = !showRecentlyDeletedOnly;
     card.title = showRecentlyDeletedOnly ? '' : 'Drag note onto the page to post it';
@@ -375,6 +421,9 @@ function renderNotesList(filterText = '') {
       });
     });
     
+    const headerRow = document.createElement('div');
+    headerRow.className = 'note-header-row';
+
     const textDiv = document.createElement('div');
     textDiv.className = 'note-text-preview';
     if (note.text && note.text.trim() !== '') {
@@ -382,7 +431,24 @@ function renderNotesList(filterText = '') {
     } else {
       textDiv.innerHTML = '<span style="color:#80868b; font-style:italic;">Empty note...</span>';
     }
-    card.appendChild(textDiv);
+    textDiv.querySelectorAll('a').forEach(a => {
+      a.addEventListener('click', e => e.stopPropagation());
+    });
+    headerRow.appendChild(textDiv);
+
+    if (!showRecentlyDeletedOnly) {
+      const copyBtn = document.createElement('button');
+      copyBtn.className = 'note-copy-btn';
+      copyBtn.type = 'button';
+      copyBtn.title = 'Copy note text';
+      copyBtn.textContent = '📋';
+      copyBtn.addEventListener('click', event => {
+        event.stopPropagation();
+        copyTextToClipboard(note.text, copyBtn);
+      });
+      headerRow.appendChild(copyBtn);
+    }
+    card.appendChild(headerRow);
 
     if (note.favorite) {
       const favorite = document.createElement('span');
@@ -518,6 +584,8 @@ function openEditor(id, newlyCreated = false) {
   noteCategoryInput.value = noteObj ? getNoteCategory(noteObj) : '';
   isFavorite = noteObj ? noteObj.favorite === true : false;
   updateFavoriteButton();
+  currentNoteColor = validColors.includes(noteObj?.color) ? noteObj.color : 'color-yellow';
+  updateColorSwatches();
   
   isLocked = false;
   noteArea.setAttribute('contenteditable', 'true');
@@ -568,10 +636,12 @@ function createNewNote() {
     const activeTab = (tabs && tabs[0]) || {};
     const domainName = getDomain(activeTab.url) || "Unassigned site";
 
+    const nextColor = validColors[allNotes.length % validColors.length];
+
     const newNote = {
       id: Date.now(),
       text: '',
-      color: allNotes.length % 2 === 0 ? 'color-yellow' : 'color-purple',
+      color: nextColor,
       url: domainName,
       tags: [],
       favorite: false,
@@ -789,7 +859,7 @@ importJsonInput.addEventListener('change', () => {
       ).map(note => ({
         id: note.id,
         text: note.text,
-        color: note.color === 'color-purple' ? 'color-purple' : 'color-yellow',
+        color: validColors.includes(note.color) ? note.color : 'color-yellow',
         url: typeof note.url === 'string' ? note.url : 'Unassigned site',
         tags: Array.isArray(note.tags) ? note.tags.filter(tag => typeof tag === 'string') : [],
         favorite: note.favorite === true,

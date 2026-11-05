@@ -81,6 +81,7 @@
         Back
       </button>
       <div class="actions">
+        <button id="copyNoteBtn" title="Copy note text" aria-label="Copy note text">📋</button>
         <button id="lockBtn" title="Read-Only Mode">
           <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2" fill="none"><rect x="3" y="11" width="18" height="11" rx="2"></rect><path d="M7 11V7a5 5 0 0 1 9.9-1"></path></svg>
         </button>
@@ -97,6 +98,14 @@
       <button id="btnBold" title="Bold (Ctrl+B)" style="font-weight: bold;">B</button>
       <button id="btnItalic" title="Italic (Ctrl+I)" style="font-style: italic;">I</button>
       <button id="btnUnderline" title="Underline (Ctrl+U)" style="text-decoration: underline;">U</button>
+      <div class="toolbar-separator"></div>
+      <div class="color-picker-bar" id="colorPickerBar" title="Note color">
+        <button type="button" class="color-swatch yellow" data-color="color-yellow" title="Yellow"></button>
+        <button type="button" class="color-swatch green" data-color="color-green" title="Mint Green"></button>
+        <button type="button" class="color-swatch blue" data-color="color-blue" title="Sky Blue"></button>
+        <button type="button" class="color-swatch purple" data-color="color-purple" title="Lavender"></button>
+        <button type="button" class="color-swatch pink" data-color="color-pink" title="Coral Pink"></button>
+      </div>
     </div>
 
     <div class="site-field">

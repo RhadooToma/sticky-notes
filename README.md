@@ -6,7 +6,7 @@
   ### *Never Miss What Matters While Browsing*
 
   [![Manifest V3](https://img.shields.io/badge/Manifest-V3-3F7568?style=for-the-badge&logo=googlechrome&logoColor=white)](https://developer.chrome.com/docs/extensions/mv3/intro/)
-  [![Version](https://img.shields.io/badge/Version-3.9-d8a85c?style=for-the-badge)](manifest.json)
+  [![Version](https://img.shields.io/badge/Version-3.10-d8a85c?style=for-the-badge)](manifest.json)
   [![License: MIT](https://img.shields.io/badge/License-MIT-blue?style=for-the-badge)](README.md#license)
   [![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-4285F4?style=for-the-badge&logo=googlechrome&logoColor=white)](https://chrome.google.com/webstore)
 
@@ -33,6 +33,10 @@
 | Feature | Description |
 | :--- | :--- |
 | 🪟 **Floating Post-Its** | Drag any note from the menu onto a webpage as a floating post-it that remembers its coordinates after page reloads. |
+| ➖ **Minimizable Focus Mode** | Click the minimize button (`–`) on any floating note to fold it into an unobtrusive compact pill so it never blocks page content. |
+| 🎨 **5 Pastel Note Colors** | Personalize notes with 5 pastel shades (Yellow, Mint Green, Sky Blue, Lavender, Coral Pink) for visual prioritization. |
+| 📋 **1-Click Clipboard Copy** | Instant copy button (`📋`) on each note card and in the editor to grab quotes and text in a fraction of a second. |
+| 🎯 **Text Fragment Anchoring** | Right-click clipped quotes automatically scroll the browser straight to that exact paragraph highlighted in yellow (`#:~:text=`). |
 | 🏷️ **Smart Organization** | Organize notes with custom categories, tags (`#ideas`, `#quotes`), and mark important notes as favorites (★). |
 | 🌐 **Site-Specific Context** | Automatically associates notes with the active website. Filter notes by the current domain with a single click. |
 | 🔢 **Live Tab Badge Counter** | Real-time badge counter on the Chrome toolbar icon displays how many notes you have for the active website. |

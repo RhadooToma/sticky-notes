@@ -165,13 +165,37 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
+function generateTextFragmentUrl(pageUrl, selectedText) {
+  if (!pageUrl || !selectedText) return pageUrl || '';
+  const cleanUrl = pageUrl.split('#')[0];
+  const cleanText = selectedText.trim().replace(/\s+/g, ' ');
+  if (!cleanText) return cleanUrl;
+
+  try {
+    const words = cleanText.split(' ').filter(Boolean);
+    let fragment = '';
+    if (words.length <= 8) {
+      fragment = `#:~:text=${encodeURIComponent(cleanText)}`;
+    } else {
+      const start = words.slice(0, 4).join(' ');
+      const end = words.slice(-4).join(' ');
+      fragment = `#:~:text=${encodeURIComponent(start)},${encodeURIComponent(end)}`;
+    }
+    return `${cleanUrl}${fragment}`;
+  } catch (e) {
+    return cleanUrl;
+  }
+}
+
 chrome.contextMenus.onClicked.addListener((info, tab) => {
   if (info.menuItemId !== 'save-selection-to-notes' || !info.selectionText) return;
 
   let site = 'Unassigned site';
+  let targetUrl = (tab && tab.url) ? tab.url : '';
   if (tab && tab.url) {
     try {
       site = new URL(tab.url).hostname.replace(/^www\./, '');
+      targetUrl = generateTextFragmentUrl(tab.url, info.selectionText);
     } catch (error) {
       site = 'Unassigned site';
     }
@@ -179,11 +203,16 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
 
   chrome.storage.sync.get(['notesArray'], data => {
     const notes = Array.isArray(data.notesArray) ? data.notesArray : [];
+    const sourceLink = targetUrl 
+      ? `<a href="${escapeHtml(targetUrl)}" target="_blank" rel="noopener noreferrer">${escapeHtml(site)}</a>`
+      : escapeHtml(site);
+
     const newNote = {
       id: Date.now(),
-      text: `<blockquote>${escapeHtml(info.selectionText.trim())}</blockquote><p></p><p>Source: ${escapeHtml(tab && tab.url ? tab.url : '')}</p>`,
+      text: `<blockquote>${escapeHtml(info.selectionText.trim())}</blockquote><p></p><p>Source: ${sourceLink}</p>`,
       color: notes.length % 2 === 0 ? 'color-yellow' : 'color-purple',
       url: site,
+      sourceUrl: targetUrl,
       tags: ['quote'],
       favorite: false,
       category: ''

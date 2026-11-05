@@ -324,7 +324,10 @@ body.sidepanel-mode {
 }
 
 .color-yellow { background-color: #fff4bd; }
+.color-green { background-color: #d8f3dc; }
+.color-blue { background-color: #d7eaf7; }
 .color-purple { background-color: #f1e2d5; }
+.color-pink { background-color: #ffd6e0; }
 
 .theme-toggle {
   transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
@@ -399,9 +402,24 @@ body.dark-mode .color-yellow {
   border-color: #817735;
 }
 
+body.dark-mode .color-green {
+  background-color: #244837;
+  border-color: #3b7458;
+}
+
+body.dark-mode .color-blue {
+  background-color: #27435b;
+  border-color: #3d6a8f;
+}
+
 body.dark-mode .color-purple {
   background-color: #4b3e38;
   border-color: #765e51;
+}
+
+body.dark-mode .color-pink {
+  background-color: #5b2e38;
+  border-color: #8a4555;
 }
 
 body.dark-mode .note-tags span {
@@ -849,4 +867,84 @@ body.dark-mode .dropdown-row .sort-select {
   background-color: var(--surface-raised) !important;
   border-color: var(--border) !important;
   color: var(--text-muted);
+}
+
+
+/* Toolbar separator & Color Picker */
+.toolbar-separator {
+  width: 1px;
+  height: 18px;
+  background-color: var(--border);
+  margin: 0 4px;
+  align-self: center;
+}
+
+.color-picker-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.color-swatch {
+  width: 17px !important;
+  height: 17px !important;
+  border-radius: 50% !important;
+  padding: 0 !important;
+  cursor: pointer !important;
+  border: 2px solid transparent !important;
+  transition: transform 0.15s ease, box-shadow 0.15s ease !important;
+}
+
+.color-swatch:hover {
+  transform: scale(1.15);
+}
+
+.color-swatch.active {
+  box-shadow: 0 0 0 2px var(--accent) !important;
+  transform: scale(1.1);
+}
+
+.color-swatch.yellow { background: #fff4bd !important; border-color: #e2d76d !important; }
+.color-swatch.green  { background: #d8f3dc !important; border-color: #a3d9b1 !important; }
+.color-swatch.blue   { background: #d7eaf7 !important; border-color: #a9cfeb !important; }
+.color-swatch.purple { background: #f1e2d5 !important; border-color: #d6b8a2 !important; }
+.color-swatch.pink   { background: #ffd6e0 !important; border-color: #f7abbd !important; }
+
+/* Note Card Copy Button & Link Styles */
+.note-header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.note-copy-btn {
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  padding: 2px 4px;
+  font-size: 13px;
+  line-height: 1;
+  color: var(--text-muted);
+  border-radius: 4px;
+  opacity: 0.65;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  flex-shrink: 0;
+}
+
+.note-card:hover .note-copy-btn {
+  opacity: 1;
+}
+
+.note-copy-btn:hover {
+  transform: scale(1.15);
+  color: var(--accent);
+}
+
+#noteArea a, .note-text-preview a {
+  color: var(--accent);
+  text-decoration: underline;
+  word-break: break-all;
+  cursor: pointer;
 }

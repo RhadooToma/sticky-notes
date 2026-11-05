@@ -87,13 +87,14 @@ document.getElementById('importInput').addEventListener('change', event => {
       const backup = JSON.parse(reader.result);
       if (!backup || !Array.isArray(backup.notes)) throw new Error('Invalid backup');
 
+      const validColors = ['color-yellow', 'color-green', 'color-blue', 'color-purple', 'color-pink'];
       const importedNotes = backup.notes.filter(note =>
         note && (typeof note.id === 'number' || typeof note.id === 'string') &&
         typeof note.text === 'string'
       ).map(note => ({
         id: note.id,
         text: note.text,
-        color: note.color === 'color-purple' ? 'color-purple' : 'color-yellow',
+        color: validColors.includes(note.color) ? note.color : 'color-yellow',
         url: typeof note.url === 'string' ? note.url : 'Unassigned site',
         tags: Array.isArray(note.tags) ? note.tags.filter(tag => typeof tag === 'string') : [],
         favorite: note.favorite === true,
